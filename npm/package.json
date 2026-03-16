@@ -1,0 +1,19 @@
+{
+  "name": "chronofy",
+  "version": "0.1.1",
+  "description": "Temporal validity framework for time-aware AI systems. Implements the Temporal-Logical Decay Architecture (TLDA). Full release coming soon.",
+  "main": "index.js",
+  "keywords": [
+    "temporal-reasoning",
+    "information-decay",
+    "RAG",
+    "knowledge-graphs",
+    "signal-temporal-logic"
+  ],
+  "author": "Muntaser Syed",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jemsbhai/chronofy"
+  }
+}
