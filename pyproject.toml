@@ -5,8 +5,8 @@ description = "Temporal validity framework for time-aware AI systems. Implements
 authors = ["Muntaser Syed"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/muntaser-syed/chronofy"
-repository = "https://github.com/muntaser-syed/chronofy"
+homepage = "https://github.com/jemsbhai/chronofy"
+repository = "https://github.com/jemsbhai/chronofy"
 keywords = ["temporal-reasoning", "information-decay", "RAG", "knowledge-graphs", "signal-temporal-logic", "neuro-symbolic"]
 classifiers = [
     "Development Status :: 3 - Alpha",
