@@ -185,6 +185,93 @@ def validate_decay_function(fn: object) -> object:
 # ---------------------------------------------------------------------------
 
 
+def validate_scoring_strategy(strategy: object) -> object:
+    """Smoke-test a custom ScoringStrategy implementation.
+
+    Runs behavioural checks against a grid of probe (similarity, validity)
+    pairs covering edge cases: zeros, ones, and interior values. Returns
+    the object unchanged on success so the call can be used inline.
+
+    Checks:
+        1. Is an instance of ScoringStrategy.
+        2. Has a callable .score() method.
+        3. .score() returns a numeric value for all probe pairs.
+        4. All returned scores are finite (not NaN or inf).
+        5. All returned scores are in [0.0, 1.0].
+
+    Args:
+        strategy: The object to validate.
+
+    Returns:
+        strategy unchanged, enabling inline usage.
+
+    Raises:
+        PluginValidationError: With a descriptive message if any check fails.
+    """
+    from chronofy.scoring.temporal_scorer import ScoringStrategy
+
+    cls_name = type(strategy).__name__
+
+    # --- Type check ---
+    if not isinstance(strategy, ScoringStrategy):
+        raise PluginValidationError(
+            f"{cls_name!r} is not an instance of ScoringStrategy. "
+            f"Custom scoring strategies must subclass "
+            f"chronofy.scoring.temporal_scorer.ScoringStrategy."
+        )
+
+    # --- score() existence ---
+    if not callable(getattr(strategy, "score", None)):
+        raise PluginValidationError(
+            f"{cls_name}.score() is missing or not callable."
+        )
+
+    # --- Probe grid: (similarity, validity) pairs covering edge and interior ---
+    probe_pairs = [
+        (0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 1.0),
+        (0.5, 0.5), (0.8, 0.3), (0.3, 0.8), (0.6, 0.9),
+    ]
+
+    for sim, val in probe_pairs:
+        try:
+            result = strategy.score(sim, val)
+        except Exception as exc:
+            raise PluginValidationError(
+                f"{cls_name}.score() raised an unexpected exception "
+                f"for (similarity={sim}, validity={val}): {exc}"
+            ) from exc
+
+        if not isinstance(result, (int, float)):
+            raise PluginValidationError(
+                f"{cls_name}.score() must return a numeric float, "
+                f"got {type(result).__name__!r} (value={result!r}) "
+                f"for (similarity={sim}, validity={val})."
+            )
+
+        if not math.isfinite(result):
+            raise PluginValidationError(
+                f"{cls_name}.score() returned a non-finite value (NaN or inf) "
+                f"for (similarity={sim}, validity={val}). "
+                f"Combined scores must be finite real numbers in [0.0, 1.0]."
+            )
+
+        if result < 0.0:
+            raise PluginValidationError(
+                f"{cls_name}.score() returned {result:.6f}, which is below 0.0 "
+                f"(negative scores are not meaningful) "
+                f"for (similarity={sim}, validity={val})."
+            )
+
+        if result > 1.0:
+            raise PluginValidationError(
+                f"{cls_name}.score() returned {result:.6f}, which is above 1.0. "
+                f"Combined scores must be in the range [0.0, 1.0] "
+                f"for (similarity={sim}, validity={val})."
+            )
+
+    return strategy
+
+
 def validate_estimation_method(method: object) -> object:
     """Smoke-test a custom EstimationMethod implementation.
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chronofy"
-version = "0.1.4"
+version = "0.1.5"
 description = "Temporal validity framework for time-aware AI systems. Implements the Temporal-Logical Decay Architecture (TLDA) for retrieval-augmented generation."
 authors = ["Muntaser Syed"]
 license = "MIT"

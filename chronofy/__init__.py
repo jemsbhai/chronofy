@@ -1,6 +1,6 @@
 """Chronofy: Temporal validity framework for time-aware AI systems."""
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 from chronofy.models import TemporalFact, ReasoningStep, ReasoningTrace
 from chronofy.decay.base import DecayFunction
@@ -13,7 +13,21 @@ from chronofy.retrieval.filter import EpistemicFilter
 from chronofy.verification.stl import STLVerifier, STLResult
 from chronofy.pipeline import ChronofyPipeline
 from chronofy.analysis.corpus_stats import AgeStats, CorpusStats, ValidityStats
-from chronofy.plugins import PluginValidationError, validate_decay_function, validate_estimation_method
+from chronofy.plugins import (
+    PluginValidationError,
+    validate_decay_function,
+    validate_estimation_method,
+    validate_scoring_strategy,
+)
+from chronofy.scoring.temporal_scorer import (
+    ScoringStrategy,
+    ScoredFact,
+    MultiplicativeScoring,
+    HarmonicScoring,
+    WeightedBlendScoring,
+    PowerScoring,
+    TemporalScorer,
+)
 from chronofy.analysis.beta_estimator import (
     BetaEstimateResult,
     BetaEstimator,
@@ -49,4 +63,12 @@ __all__ = [
     "PluginValidationError",
     "validate_decay_function",
     "validate_estimation_method",
+    "validate_scoring_strategy",
+    "ScoringStrategy",
+    "ScoredFact",
+    "MultiplicativeScoring",
+    "HarmonicScoring",
+    "WeightedBlendScoring",
+    "PowerScoring",
+    "TemporalScorer",
 ]
