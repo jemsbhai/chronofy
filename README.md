@@ -564,6 +564,8 @@ print(result.stl_result.output_confidence_bound)
 | `AgeStats` | Frozen dataclass: min/max/mean/median/std/p25/p75 of ages |
 | `ValidityStats` | Frozen dataclass: min/max/mean/median/std/p25/p75 of validity scores |
 | `BetaEstimator` | Fits β from `(age, valid)` observations; `.fit()`, `.fit_corpus()`, `.to_decay()` |
+| `DecayComparison` | Evaluates multiple decay backends on labelled data; `.compare()`, `.best()`, `.summary()` |
+| `DecayComparisonResult` | Frozen dataclass: name, auc_roc, brier_score, log_loss, ranking_correlation |
 | `BetaEstimateResult` | β, half-life, log-likelihood, n_obs, n_valid, converged |
 
 ### Estimation Methods

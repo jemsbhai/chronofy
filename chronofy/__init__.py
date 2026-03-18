@@ -1,6 +1,6 @@
 """Chronofy: Temporal validity framework for time-aware AI systems."""
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 from chronofy.models import TemporalFact, ReasoningStep, ReasoningTrace
 from chronofy.decay.base import DecayFunction
@@ -27,6 +27,10 @@ from chronofy.scoring.temporal_scorer import (
     WeightedBlendScoring,
     PowerScoring,
     TemporalScorer,
+)
+from chronofy.comparison.decay_comparison import (
+    DecayComparison,
+    DecayComparisonResult,
 )
 from chronofy.analysis.beta_estimator import (
     BetaEstimateResult,
@@ -71,4 +75,6 @@ __all__ = [
     "WeightedBlendScoring",
     "PowerScoring",
     "TemporalScorer",
+    "DecayComparison",
+    "DecayComparisonResult",
 ]
