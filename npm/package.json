@@ -1,19 +1,33 @@
 {
   "name": "chronofy",
-  "version": "0.1.1",
-  "description": "Temporal validity framework for time-aware AI systems. Implements the Temporal-Logical Decay Architecture (TLDA). Full release coming soon.",
+  "version": "0.1.6",
+  "description": "Temporal validity framework for time-aware AI systems. Implements the Temporal-Logical Decay Architecture (TLDA) for retrieval-augmented generation.",
   "main": "index.js",
+  "scripts": {
+    "test": "jest --coverage",
+    "test:watch": "jest --watch"
+  },
   "keywords": [
     "temporal-reasoning",
     "information-decay",
     "RAG",
     "knowledge-graphs",
-    "signal-temporal-logic"
+    "signal-temporal-logic",
+    "neuro-symbolic",
+    "retrieval-augmented-generation"
   ],
   "author": "Muntaser Syed",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/jemsbhai/chronofy"
+  },
+  "homepage": "https://github.com/jemsbhai/chronofy",
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"]
   }
 }
