@@ -1,6 +1,6 @@
 """Chronofy: Temporal validity framework for time-aware AI systems."""
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 from chronofy.models import TemporalFact, ReasoningStep, ReasoningTrace
 from chronofy.decay.base import DecayFunction
@@ -13,6 +13,14 @@ from chronofy.retrieval.filter import EpistemicFilter
 from chronofy.verification.stl import STLVerifier, STLResult
 from chronofy.pipeline import ChronofyPipeline
 from chronofy.analysis.corpus_stats import AgeStats, CorpusStats, ValidityStats
+from chronofy.analysis.beta_estimator import (
+    BetaEstimateResult,
+    BetaEstimator,
+    EstimationMethod,
+    MLEBernoulli,
+    MomentMatching,
+    EnsembleMethod,
+)
 
 __all__ = [
     "TemporalFact",
@@ -31,4 +39,10 @@ __all__ = [
     "CorpusStats",
     "AgeStats",
     "ValidityStats",
+    "BetaEstimateResult",
+    "BetaEstimator",
+    "EstimationMethod",
+    "MLEBernoulli",
+    "MomentMatching",
+    "EnsembleMethod",
 ]
