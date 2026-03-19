@@ -14,12 +14,15 @@ Core exports:
 try:
     from jsonld_ex.confidence_algebra import Opinion  # noqa: F401
 
+    from chronofy.sl.fusion import FusionReport, TemporalEvidenceFusion
     from chronofy.sl.opinion_decay import OpinionConfig, OpinionDecayFunction
 
     __all__ = [
         "OpinionDecayFunction",
         "OpinionConfig",
         "Opinion",
+        "TemporalEvidenceFusion",
+        "FusionReport",
     ]
 
 except ImportError as e:
