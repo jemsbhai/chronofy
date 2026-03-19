@@ -38,6 +38,7 @@ from jsonld_ex.confidence_algebra import Opinion
 from chronofy.models import TemporalFact
 from chronofy.sl.opinion_decay import OpinionDecayFunction
 from chronofy.sl.trust import (
+    TrustEntry,
     TrustProfile,
     TrustWeightedDecay,
 )
@@ -133,6 +134,271 @@ class TestTrustProfile:
         tp.set_trust("a", Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1))
         tp.set_trust("b", Opinion(belief=0.5, disbelief=0.0, uncertainty=0.5))
         assert tp.sources == {"a", "b"}
+
+
+# ===========================================================================
+# 1b. TrustEntry
+# ===========================================================================
+
+
+class TestTrustEntry:
+    """TrustEntry bundles a trust opinion with temporal metadata."""
+
+    def test_construction_minimal(self):
+        entry = TrustEntry(opinion=Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1))
+        assert entry.opinion.belief == pytest.approx(0.9)
+        assert entry.timestamp is None
+        assert entry.half_life is None
+
+    def test_construction_with_timestamp(self):
+        ts = datetime(2025, 6, 1)
+        entry = TrustEntry(
+            opinion=Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1),
+            timestamp=ts,
+            half_life=180.0,  # 6-month half-life in days
+        )
+        assert entry.timestamp == ts
+        assert entry.half_life == 180.0
+
+    def test_static_entry_has_no_temporal_info(self):
+        entry = TrustEntry(opinion=Opinion(belief=0.8, disbelief=0.1, uncertainty=0.1))
+        assert not entry.is_temporal
+
+    def test_temporal_entry_has_temporal_info(self):
+        entry = TrustEntry(
+            opinion=Opinion(belief=0.8, disbelief=0.1, uncertainty=0.1),
+            timestamp=datetime(2025, 1, 1),
+            half_life=90.0,
+        )
+        assert entry.is_temporal
+
+
+# ===========================================================================
+# 1c. Trust Decay — Trust opinions age over time
+# ===========================================================================
+
+
+class TestTrustDecay:
+    """Trust itself decays: a lab certification from 5 years ago is less
+    trustworthy than one from yesterday."""
+
+    def test_set_trust_with_timestamp(self):
+        """TrustProfile.set_trust() accepts optional temporal metadata."""
+        tp = TrustProfile()
+        tp.set_trust(
+            "lab",
+            Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1),
+            timestamp=datetime(2025, 6, 1),
+            half_life=365.0,
+        )
+        assert "lab" in tp
+
+    def test_static_trust_unchanged_with_query_time(self):
+        """Static trust (no timestamp) is unaffected by query_time."""
+        tp = TrustProfile()
+        tp.set_trust("lab", Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1))
+        result_no_qt = tp.get_trust("lab")
+        result_with_qt = tp.get_trust("lab", query_time=QUERY_TIME)
+        assert result_no_qt.belief == pytest.approx(result_with_qt.belief)
+
+    def test_fresh_trust_barely_decayed(self):
+        """Trust established recently should barely decay."""
+        tp = TrustProfile()
+        original = Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1)
+        tp.set_trust(
+            "lab", original,
+            timestamp=QUERY_TIME - timedelta(days=1),
+            half_life=365.0,
+        )
+        decayed = tp.get_trust("lab", query_time=QUERY_TIME)
+        assert decayed.belief > 0.85  # barely changed
+        assert decayed.uncertainty < 0.15
+
+    def test_old_trust_heavily_decayed(self):
+        """Trust established long ago should decay significantly."""
+        tp = TrustProfile()
+        original = Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1)
+        tp.set_trust(
+            "old_lab", original,
+            timestamp=QUERY_TIME - timedelta(days=730),  # 2 years ago
+            half_life=180.0,  # 6-month half-life
+        )
+        decayed = tp.get_trust("old_lab", query_time=QUERY_TIME)
+        # After ~4 half-lives, belief should be heavily reduced
+        assert decayed.belief < 0.1
+        assert decayed.uncertainty > 0.8
+
+    def test_trust_decay_monotonic_with_age(self):
+        """Older trust establishment → more decayed trust opinion."""
+        tp = TrustProfile()
+        original = Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1)
+
+        for source, days_ago in [("recent", 7), ("medium", 90), ("old", 365)]:
+            tp.set_trust(
+                source, original,
+                timestamp=QUERY_TIME - timedelta(days=days_ago),
+                half_life=180.0,
+            )
+
+        recent = tp.get_trust("recent", query_time=QUERY_TIME)
+        medium = tp.get_trust("medium", query_time=QUERY_TIME)
+        old = tp.get_trust("old", query_time=QUERY_TIME)
+
+        assert recent.belief > medium.belief > old.belief
+        assert recent.uncertainty < medium.uncertainty < old.uncertainty
+
+    def test_trust_decay_preserves_bd_ratio(self):
+        """Trust decay preserves evidence direction (b/d ratio)."""
+        tp = TrustProfile()
+        original = Opinion(belief=0.7, disbelief=0.2, uncertainty=0.1)
+        tp.set_trust(
+            "src", original,
+            timestamp=QUERY_TIME - timedelta(days=90),
+            half_life=180.0,
+        )
+        decayed = tp.get_trust("src", query_time=QUERY_TIME)
+        # b/d ratio should be preserved
+        if decayed.disbelief > 1e-9:
+            original_ratio = original.belief / original.disbelief
+            decayed_ratio = decayed.belief / decayed.disbelief
+            assert original_ratio == pytest.approx(decayed_ratio, rel=0.01)
+
+    def test_trust_decay_preserves_additivity(self):
+        """b + d + u = 1 after trust decay."""
+        tp = TrustProfile()
+        tp.set_trust(
+            "src",
+            Opinion(belief=0.8, disbelief=0.1, uncertainty=0.1),
+            timestamp=QUERY_TIME - timedelta(days=60),
+            half_life=90.0,
+        )
+        decayed = tp.get_trust("src", query_time=QUERY_TIME)
+        total = decayed.belief + decayed.disbelief + decayed.uncertainty
+        assert total == pytest.approx(1.0, abs=1e-9)
+
+    def test_no_query_time_returns_raw_opinion(self):
+        """Without query_time, temporal entries return their raw opinion."""
+        tp = TrustProfile()
+        original = Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1)
+        tp.set_trust(
+            "lab", original,
+            timestamp=QUERY_TIME - timedelta(days=365),
+            half_life=180.0,
+        )
+        raw = tp.get_trust("lab")  # no query_time
+        assert raw.belief == pytest.approx(original.belief)
+
+    def test_configurable_decay_function(self):
+        """Users can plug in different decay functions for trust aging."""
+        from jsonld_ex.confidence_decay import linear_decay
+
+        tp = TrustProfile(trust_decay_fn=linear_decay)
+        original = Opinion(belief=0.8, disbelief=0.1, uncertainty=0.1)
+        tp.set_trust(
+            "src", original,
+            timestamp=QUERY_TIME - timedelta(days=90),
+            half_life=180.0,
+        )
+        decayed = tp.get_trust("src", query_time=QUERY_TIME)
+        # Linear decay should give different result than exponential
+        assert isinstance(decayed, Opinion)
+        assert decayed.belief < original.belief
+
+    def test_configurable_decay_step_function(self):
+        """Step decay: trust is fully valid before half_life, zero after."""
+        from jsonld_ex.confidence_decay import step_decay
+
+        tp = TrustProfile(trust_decay_fn=step_decay)
+        original = Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1)
+
+        # Before half-life: trust unchanged
+        tp.set_trust(
+            "fresh", original,
+            timestamp=QUERY_TIME - timedelta(days=30),
+            half_life=90.0,
+        )
+        fresh = tp.get_trust("fresh", query_time=QUERY_TIME)
+        assert fresh.belief == pytest.approx(original.belief)
+
+        # After half-life: trust fully decayed
+        tp.set_trust(
+            "stale", original,
+            timestamp=QUERY_TIME - timedelta(days=180),
+            half_life=90.0,
+        )
+        stale = tp.get_trust("stale", query_time=QUERY_TIME)
+        assert stale.belief == pytest.approx(0.0, abs=1e-9)
+        assert stale.uncertainty == pytest.approx(1.0, abs=1e-9)
+
+    def test_from_scalars_with_timestamps(self):
+        """Convenience: build temporal trust entries from scalars."""
+        tp = TrustProfile.from_scalars(
+            {"lab": 0.95, "clinic": 0.8},
+            uncertainty=0.05,
+            timestamps={
+                "lab": QUERY_TIME - timedelta(days=30),
+                "clinic": QUERY_TIME - timedelta(days=365),
+            },
+            half_lives={"lab": 365.0, "clinic": 180.0},
+        )
+        lab = tp.get_trust("lab", query_time=QUERY_TIME)
+        clinic = tp.get_trust("clinic", query_time=QUERY_TIME)
+        # Lab: recent, long half-life → barely decayed
+        # Clinic: old, short half-life → heavily decayed
+        assert lab.belief > clinic.belief
+
+
+# ===========================================================================
+# 1d. Trust Decay in TrustWeightedDecay Pipeline
+# ===========================================================================
+
+
+class TestTrustDecayInPipeline:
+    """TrustWeightedDecay applies trust decay before trust discount."""
+
+    @pytest.fixture
+    def odf(self) -> OpinionDecayFunction:
+        return OpinionDecayFunction(
+            half_lives={"general": 7.0},
+            construction="confidence",
+            base_uncertainty=0.1,
+        )
+
+    def test_pipeline_decays_trust_then_discounts(self, odf):
+        """Full pipeline: decay evidence → decay trust → trust discount."""
+        tp = TrustProfile()
+        tp.set_trust(
+            "old_lab",
+            Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1),
+            timestamp=QUERY_TIME - timedelta(days=365),
+            half_life=180.0,
+        )
+        tp.set_trust(
+            "new_lab",
+            Opinion(belief=0.9, disbelief=0.0, uncertainty=0.1),
+            timestamp=QUERY_TIME - timedelta(days=7),
+            half_life=180.0,
+        )
+        twd = TrustWeightedDecay(decay_fn=odf, trust_profile=tp)
+
+        fact_old = _fact(days_ago=3, source="old_lab")
+        fact_new = _fact(days_ago=3, source="new_lab")
+
+        op_old = twd.compute_opinion(fact_old, QUERY_TIME)
+        op_new = twd.compute_opinion(fact_new, QUERY_TIME)
+
+        # Same evidence age, but old_lab's trust has decayed more
+        assert op_new.belief > op_old.belief
+
+    def test_pipeline_static_trust_unchanged(self, odf):
+        """Static trust entries (no timestamp) behave as before."""
+        tp = TrustProfile.from_scalars({"lab": 0.9})
+        twd = TrustWeightedDecay(decay_fn=odf, trust_profile=tp)
+
+        fact = _fact(days_ago=3, source="lab")
+        opinion = twd.compute_opinion(fact, QUERY_TIME)
+        assert isinstance(opinion, Opinion)
+        assert opinion.belief > 0
 
 
 # ===========================================================================
