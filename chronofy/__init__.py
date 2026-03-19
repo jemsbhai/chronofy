@@ -1,6 +1,6 @@
 """Chronofy: Temporal validity framework for time-aware AI systems."""
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 from chronofy.models import TemporalFact, ReasoningStep, ReasoningTrace
 from chronofy.decay.base import DecayFunction
