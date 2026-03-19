@@ -1,6 +1,6 @@
 """Chronofy: Temporal validity framework for time-aware AI systems."""
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 
 from chronofy.models import TemporalFact, ReasoningStep, ReasoningTrace
 from chronofy.decay.base import DecayFunction
@@ -10,6 +10,9 @@ from chronofy.decay.linear import LinearDecay
 from chronofy.decay.power_law import PowerLawDecay
 from chronofy.decay.weibull import WeibullDecay
 from chronofy.retrieval.filter import EpistemicFilter
+from chronofy.embedding.base import TemporalEncoder
+from chronofy.embedding.sinusoidal import SinusoidalEncoder
+from chronofy.embedding.embedder import TemporalEmbedder
 from chronofy.verification.stl import STLVerifier, STLResult
 from chronofy.pipeline import ChronofyPipeline
 from chronofy.analysis.corpus_stats import AgeStats, CorpusStats, ValidityStats
@@ -51,6 +54,9 @@ __all__ = [
     "LinearDecay",
     "PowerLawDecay",
     "WeibullDecay",
+    "TemporalEncoder",
+    "SinusoidalEncoder",
+    "TemporalEmbedder",
     "EpistemicFilter",
     "STLVerifier",
     "STLResult",
