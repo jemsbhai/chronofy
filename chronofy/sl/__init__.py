@@ -14,6 +14,7 @@ Core exports:
 try:
     from jsonld_ex.confidence_algebra import Opinion  # noqa: F401
 
+    from chronofy.sl.conflict import ConflictDetector, ConflictReport
     from chronofy.sl.fusion import FusionReport, TemporalEvidenceFusion
     from chronofy.sl.opinion_decay import OpinionConfig, OpinionDecayFunction
     from chronofy.sl.trust import TrustEntry, TrustProfile, TrustWeightedDecay
@@ -22,6 +23,8 @@ try:
         "OpinionDecayFunction",
         "OpinionConfig",
         "Opinion",
+        "ConflictDetector",
+        "ConflictReport",
         "TemporalEvidenceFusion",
         "FusionReport",
         "TrustEntry",
