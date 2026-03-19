@@ -16,6 +16,7 @@ try:
 
     from chronofy.sl.fusion import FusionReport, TemporalEvidenceFusion
     from chronofy.sl.opinion_decay import OpinionConfig, OpinionDecayFunction
+    from chronofy.sl.trust import TrustProfile, TrustWeightedDecay
 
     __all__ = [
         "OpinionDecayFunction",
@@ -23,6 +24,8 @@ try:
         "Opinion",
         "TemporalEvidenceFusion",
         "FusionReport",
+        "TrustProfile",
+        "TrustWeightedDecay",
     ]
 
 except ImportError as e:
