@@ -21,9 +21,20 @@ from chronofy.embedding.embedder import TemporalEmbedder
 try:
     from chronofy.embedding.learned import LearnedEncoder
     from chronofy.embedding.losses import (
+        TemporalLoss,
+        LossRegistry,
+        CompositeLoss,
+        default_registry,
         CKALoss,
         TemporalContrastiveLoss,
         SemanticContrastiveLoss,
+        NTXentLoss,
+        TripletLoss,
+        TemporalTripletLoss,
+        TemporalOrderingLoss,
+        TemporalSmoothnessLoss,
+        AlignmentUniformityLoss,
+        MatryoshkaTruncationLoss,
         TMRLLoss,
     )
     from chronofy.embedding.fine_tuner import TemporalFineTuner
@@ -37,9 +48,20 @@ __all__ = ["TemporalEncoder", "SinusoidalEncoder", "TemporalEmbedder"]
 if _ML_AVAILABLE:
     __all__ += [
         "LearnedEncoder",
+        "TemporalLoss",
+        "LossRegistry",
+        "CompositeLoss",
+        "default_registry",
         "CKALoss",
         "TemporalContrastiveLoss",
         "SemanticContrastiveLoss",
+        "NTXentLoss",
+        "TripletLoss",
+        "TemporalTripletLoss",
+        "TemporalOrderingLoss",
+        "TemporalSmoothnessLoss",
+        "AlignmentUniformityLoss",
+        "MatryoshkaTruncationLoss",
         "TMRLLoss",
         "TemporalFineTuner",
     ]

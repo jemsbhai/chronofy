@@ -348,7 +348,7 @@ class TestCKALoss:
 
         cka = CKALoss()
         X = torch.randn(32, 64)
-        loss = cka(X, X)
+        loss = cka(X=X, Y=X)
         assert loss.item() == pytest.approx(0.0, abs=1e-4)
 
     def test_cka_in_zero_one(self):
@@ -360,6 +360,7 @@ class TestCKALoss:
         Y = torch.randn(32, 32)
         sim = cka.cka_similarity(X, Y)
         assert 0.0 <= sim.item() <= 1.0 + 1e-6
+
 
     def test_cka_is_symmetric(self):
         """CKA(X, Y) == CKA(Y, X) when dimensions allow."""
@@ -379,7 +380,7 @@ class TestCKALoss:
         cka = CKALoss()
         X = torch.randn(16, 32, requires_grad=True)
         Y = torch.randn(16, 16)
-        loss = cka(X, Y)
+        loss = cka(X=X, Y=Y)
         loss.backward()
         assert X.grad is not None
 
@@ -390,7 +391,7 @@ class TestCKALoss:
         cka = CKALoss()
         X = torch.randn(32, 128)
         Y = torch.randn(32, 16)
-        loss = cka(X, Y)
+        loss = cka(X=X, Y=Y)
         assert loss.item() >= 0.0
 
     def test_mismatched_batch_size_raises(self):
@@ -401,7 +402,7 @@ class TestCKALoss:
         X = torch.randn(32, 64)
         Y = torch.randn(16, 64)
         with pytest.raises(ValueError, match="batch"):
-            cka(X, Y)
+            cka(X=X, Y=Y)
 
 
 # =====================================================================
@@ -420,7 +421,7 @@ class TestTemporalContrastiveLoss:
         embeddings = torch.randn(16, 8)  # batch of temporal embeddings
         # Timestamps as day offsets
         timestamps = torch.arange(16, dtype=torch.float32)
-        loss = loss_fn(embeddings, timestamps)
+        loss = loss_fn(embeddings=embeddings, timestamps=timestamps)
         assert loss.dim() == 0  # scalar
 
     def test_loss_is_non_negative(self):
@@ -429,7 +430,7 @@ class TestTemporalContrastiveLoss:
         loss_fn = TemporalContrastiveLoss()
         embeddings = torch.randn(16, 8)
         timestamps = torch.arange(16, dtype=torch.float32)
-        loss = loss_fn(embeddings, timestamps)
+        loss = loss_fn(embeddings=embeddings, timestamps=timestamps)
         assert loss.item() >= 0.0
 
     def test_gradient_flows(self):
@@ -438,7 +439,7 @@ class TestTemporalContrastiveLoss:
         loss_fn = TemporalContrastiveLoss()
         embeddings = torch.randn(16, 8, requires_grad=True)
         timestamps = torch.arange(16, dtype=torch.float32)
-        loss = loss_fn(embeddings, timestamps)
+        loss = loss_fn(embeddings=embeddings, timestamps=timestamps)
         loss.backward()
         assert embeddings.grad is not None
 
@@ -449,8 +450,8 @@ class TestTemporalContrastiveLoss:
         loss_high_t = TemporalContrastiveLoss(temperature=1.0)
         embeddings = torch.randn(16, 8)
         timestamps = torch.arange(16, dtype=torch.float32)
-        l1 = loss_low_t(embeddings, timestamps)
-        l2 = loss_high_t(embeddings, timestamps)
+        l1 = loss_low_t(embeddings=embeddings, timestamps=timestamps)
+        l2 = loss_high_t(embeddings=embeddings, timestamps=timestamps)
         # Different temperatures should give different losses
         assert l1.item() != pytest.approx(l2.item(), abs=0.01)
 

@@ -26,7 +26,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from chronofy.embedding.learned import LearnedEncoder
-from chronofy.embedding.losses import TMRLLoss
+from chronofy.embedding.losses.tmrl import TMRLLoss
 
 
 # =====================================================================
