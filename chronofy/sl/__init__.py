@@ -17,6 +17,14 @@ try:
     from chronofy.sl.conflict import ConflictDetector, ConflictReport
     from chronofy.sl.fusion import FusionReport, TemporalEvidenceFusion
     from chronofy.sl.opinion_decay import OpinionConfig, OpinionDecayFunction
+    from chronofy.sl.opinion_scorer import (
+        OpinionScoredFact,
+        OpinionScorer,
+        OpinionScoringStrategy,
+        ProjectedMultiplicative,
+        UncertaintyAwareBlend,
+        UncertaintyPenalized,
+    )
     from chronofy.sl.stl_opinion import OpinionSTLResult, OpinionSTLVerifier
     from chronofy.sl.trust import TrustEntry, TrustProfile, TrustWeightedDecay
 
@@ -28,6 +36,12 @@ try:
         "ConflictReport",
         "TemporalEvidenceFusion",
         "FusionReport",
+        "OpinionScorer",
+        "OpinionScoredFact",
+        "OpinionScoringStrategy",
+        "ProjectedMultiplicative",
+        "UncertaintyPenalized",
+        "UncertaintyAwareBlend",
         "OpinionSTLVerifier",
         "OpinionSTLResult",
         "TrustEntry",
