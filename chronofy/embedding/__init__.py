@@ -17,4 +17,29 @@ from chronofy.embedding.base import TemporalEncoder
 from chronofy.embedding.sinusoidal import SinusoidalEncoder
 from chronofy.embedding.embedder import TemporalEmbedder
 
+# Torch-dependent imports (available with [ml] extra)
+try:
+    from chronofy.embedding.learned import LearnedEncoder
+    from chronofy.embedding.losses import (
+        CKALoss,
+        TemporalContrastiveLoss,
+        SemanticContrastiveLoss,
+        TMRLLoss,
+    )
+    from chronofy.embedding.fine_tuner import TemporalFineTuner
+
+    _ML_AVAILABLE = True
+except ImportError:
+    _ML_AVAILABLE = False
+
 __all__ = ["TemporalEncoder", "SinusoidalEncoder", "TemporalEmbedder"]
+
+if _ML_AVAILABLE:
+    __all__ += [
+        "LearnedEncoder",
+        "CKALoss",
+        "TemporalContrastiveLoss",
+        "SemanticContrastiveLoss",
+        "TMRLLoss",
+        "TemporalFineTuner",
+    ]
