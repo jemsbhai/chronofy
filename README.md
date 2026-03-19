@@ -36,6 +36,7 @@ With optional dependencies:
 ```bash
 pip install chronofy[graph]   # NetworkX for graph-based retrieval
 pip install chronofy[ml]      # PyTorch + sentence-transformers for embeddings
+pip install chronofy[sl]      # Subjective Logic extensions (jsonld-ex)
 pip install chronofy[all]     # Everything
 ```
 
@@ -43,7 +44,7 @@ pip install chronofy[all]     # Everything
 
 ## Architecture
 
-Chronofy operates as three independent but composable layers:
+Chronofy operates as three independent but composable layers, with an optional Subjective Logic extension:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -57,6 +58,12 @@ Chronofy operates as three independent but composable layers:
 │ preserves age │  epistemic filter    │  weakest-link bound   │
 │ at all scales │  τ-threshold pruning │  re-acquisition alert │
 └───────────────┴──────────────────────┴───────────────────────┘
+         ┌──────────────────────────────────────────┐
+         │   chronofy[sl] — Subjective Logic Ext.   │
+         │   Full (b,d,u,a) opinion tracking         │
+         │   Trust-discounted decay · Conflict       │
+         │   detection · Opinion-aware STL & scoring │
+         └──────────────────────────────────────────┘
 ```
 
 Each layer is independently usable — you do not need all three.
@@ -543,13 +550,39 @@ print(result.stl_result.output_confidence_bound)
 | `WeibullDecay` | `scale`, `shape` | Survival analysis domains |
 | `DecayFunction` | ABC | Custom implementations |
 
-### Retrieval
+### Embedding (Layer 1)
+
+| Class | Description |
+|---|---|
+| `TemporalEncoder` | ABC for temporal encoding |
+| `SinusoidalEncoder` | Fourier-based temporal projection |
+| `TemporalEmbedder` | `[e_temp ; e_sem]` concatenation |
+| `LearnedEncoder` | Trainable `nn.Module` temporal encoder |
+| `TemporalFineTuner` | LoRA injection + CKA contrastive training |
+
+### Retrieval (Layer 2)
 
 | Class | Description |
 |---|---|
 | `EpistemicFilter` | τ-threshold gate; `.filter()`, `.partition()`, `.needs_reacquisition()` |
+| `TemporalTriple` | Timestamped (subject, predicate, object, timestamp) triple |
+| `TemporalKnowledgeGraph` | Directed/undirected temporal knowledge graph with time-range queries |
+| `TemporalRule` | Temporal logical rule with confidence, body/head patterns |
+| `RuleMiner` | Apriori-based level-wise temporal rule mining |
+| `TemporalRuleGraph` | MDL-optimized rule graph with decay-weighted Personalized PageRank |
 
-### Verification
+### Scoring
+
+| Class | Description |
+|---|---|
+| `TemporalScorer` | Scores facts by `strategy(similarity, validity)` |
+| `ScoredFact` | Fact + similarity + validity + combined_score |
+| `MultiplicativeScoring` | sim × val (default) |
+| `HarmonicScoring` | 2·sim·val / (sim + val) |
+| `WeightedBlendScoring(α)` | α·sim + (1-α)·val |
+| `PowerScoring(α)` | sim^α · val^(1-α) |
+
+### Verification (Layer 3)
 
 | Class | Description |
 |---|---|
@@ -584,6 +617,177 @@ print(result.stl_result.output_confidence_bound)
 | `validate_decay_function(fn)` | Behavioural smoke-test; returns `fn` on success |
 | `validate_estimation_method(m)` | Behavioural smoke-test; returns `m` on success |
 | `PluginValidationError` | Raised with a descriptive message on validation failure |
+
+---
+
+## Subjective Logic Extension (`chronofy[sl]`)
+
+The core framework uses scalar validity scores `V ∈ [0, 1]`. The `chronofy[sl]` extension enriches this with Jøsang's Subjective Logic Opinions `ω = (b, d, u, a)`, which distinguish **evidential direction** (belief vs disbelief) from **epistemic uncertainty** — a distinction that scalars conflate.
+
+```bash
+pip install chronofy[sl]
+```
+
+Requires [jsonld-ex](https://pypi.org/project/jsonld-ex/) (automatically installed).
+
+### Why Opinions matter
+
+A scalar validity of 0.5 could mean:
+- "We have strong evidence that the probability is 50%" (b=0.45, d=0.45, u=0.10)
+- "We have no evidence at all" (b=0.0, d=0.0, u=1.0, a=0.5)
+
+These require very different downstream behavior. The SL extension makes this distinction throughout the entire pipeline.
+
+### Opinion-Based Decay
+
+```python
+from chronofy.sl import OpinionDecayFunction, OpinionConfig
+
+# Configure per fact type: half-life in days, base rate, base uncertainty
+odf = OpinionDecayFunction(
+    half_lives={"vital_sign": 1.0, "chronic": 69.3, "demographic": 36500.0},
+    base_rates={"demographic": 0.9},
+    construction="confidence",   # or "evidence" for count-based sources
+    base_uncertainty=0.1,        # irreducible epistemic uncertainty
+)
+
+# Scalar compatibility — works with EpistemicFilter, STLVerifier, TemporalRuleGraph
+score = odf.compute(fact, query_time)           # returns P(ω') ∈ [0, 1]
+
+# Full opinion — for SL-aware consumers
+opinion = odf.compute_opinion(fact, query_time)  # returns Opinion(b, d, u, a)
+print(f"b={opinion.belief:.3f}, u={opinion.uncertainty:.3f}")
+# A 6-month-old potassium reading: belief has decayed, uncertainty is high,
+# but the b/d ratio is preserved — it still tells you the value was LOW.
+```
+
+### Trust-Discounted Decay
+
+Model source reliability as a full Opinion, not a scalar multiplier. Absorbs ASEV Axioms 3-4 (reliability/Blackwell monotonicity).
+
+```python
+from chronofy.sl import TrustProfile, TrustWeightedDecay
+from datetime import datetime, timedelta
+
+now = datetime.now()
+
+# Trust opinions per source, with optional temporal decay on the trust itself
+tp = TrustProfile.from_scalars(
+    {"hospital_lab": 0.95, "patient_report": 0.60, "wearable": 0.70},
+    uncertainty=0.05,
+    timestamps={"hospital_lab": now - timedelta(days=365)},  # certified 1yr ago
+    half_lives={"hospital_lab": 730.0},  # trust half-life: 2 years
+)
+
+# Two independent decay channels:
+#   ω_Ax = decay(ω_trust, age_of_trust) ⊗ decay(ω_evidence, age_of_evidence)
+twd = TrustWeightedDecay(decay_fn=odf, trust_profile=tp)
+opinion = twd.compute_opinion(fact, query_time=now)
+```
+
+### Evidence Fusion
+
+Combine multiple observations of the same proposition with diminishing returns (ASEV Axiom 6).
+
+```python
+from chronofy.sl import TemporalEvidenceFusion
+
+fuser = TemporalEvidenceFusion(
+    decay_fn=odf,
+    fusion_method="cumulative",  # independent sources (or "averaging" for correlated)
+    byzantine=True,              # remove adversarial outliers before fusion
+    byzantine_threshold=0.15,
+)
+
+report = fuser.fuse(potassium_readings, query_time=now)
+print(report.fused_opinion)          # combined (b, d, u, a)
+print(report.projected_probability)  # scalar fallback
+print(report.removed_count)          # Byzantine-filtered outliers
+```
+
+### Conflict Detection
+
+Detect contradictory evidence before fusion or LLM consumption.
+
+```python
+from chronofy.sl import ConflictDetector
+
+detector = ConflictDetector(decay_fn=odf, default_threshold=0.15)
+report = detector.detect(facts, query_time=now)
+
+print(f"Cohesion: {report.cohesion_score:.3f}")  # 1.0 = perfect agreement
+for i, j, score in report.conflict_pairs:
+    print(f"  Facts {i} vs {j}: conflict = {score:.3f}")
+
+# Also available for pre-decayed opinions (e.g., from trust pipeline)
+report = ConflictDetector.detect_from_opinions(opinions, threshold=0.2)
+```
+
+### Opinion-Aware STL Verification
+
+Richer weakest-link bound that distinguishes stale evidence (high u) from negative evidence (high d).
+
+```python
+from chronofy.sl import OpinionSTLVerifier
+
+verifier = OpinionSTLVerifier(decay_fn=odf, threshold=0.6)
+result = verifier.verify(trace)
+
+print(f"ρ = {result.robustness:.4f}")
+print(f"Weakest link: u={result.weakest_link_opinion.uncertainty:.3f}")
+
+# Re-acquisition diagnostics
+if not result.satisfied:
+    wl = result.weakest_link_opinion
+    if wl.uncertainty > 0.8:
+        print("Stale evidence — re-acquire same source type")
+    elif wl.disbelief > wl.belief:
+        print("Negative evidence — real finding, not staleness")
+    else:
+        print("Weak evidence — need additional sources")
+```
+
+### Opinion-Aware Scoring
+
+Scoring strategies that can inspect uncertainty directly.
+
+```python
+from chronofy.sl import OpinionScorer, UncertaintyPenalized, UncertaintyAwareBlend
+
+# UncertaintyPenalized: sim × P(ω) × (1-u)
+# Suppresses uncertain (stale) evidence more aggressively than scalar scoring
+scorer = OpinionScorer(decay_fn=odf, strategy=UncertaintyPenalized())
+ranked = scorer.rank(facts, similarities, query_time=now, top_k=5)
+
+for sf in ranked:
+    print(f"[{sf.combined_score:.3f}] u={sf.validity_opinion.uncertainty:.2f}  {sf.fact.content}")
+
+# Three-way blend: α·sim + β·P(ω) + γ·(1-u)
+scorer = OpinionScorer(
+    decay_fn=odf,
+    strategy=UncertaintyAwareBlend(alpha=0.4, beta=0.4),  # γ=0.2 for certainty
+)
+```
+
+### SL Module Summary
+
+| Class | Description |
+|---|---|
+| `OpinionDecayFunction` | DecayFunction returning full Opinions; backward compatible via `compute()` |
+| `OpinionConfig` | Per-fact-type half_life, base_rate, base_uncertainty |
+| `TemporalEvidenceFusion` | Decay → (Byzantine filter) → cumulative/averaging fusion |
+| `FusionReport` | Fused opinion, per-source opinions, removed indices |
+| `ConflictDetector` | Pairwise conflict matrix, discord scores, cohesion |
+| `ConflictReport` | Full diagnostics: matrix, pairs, discord, internal conflicts |
+| `TrustProfile` | Source → trust Opinion mapping with temporal trust decay |
+| `TrustWeightedDecay` | Dual decay channels: evidence aging ⊗ trust aging |
+| `OpinionSTLVerifier` | STL verification with per-step Opinions |
+| `OpinionSTLResult` | Step opinions, weakest-link opinion, scalar compat |
+| `OpinionScorer` | Rank facts using Opinion-aware strategies |
+| `OpinionScoredFact` | Fact + Opinion + scalar validity + combined score |
+| `ProjectedMultiplicative` | sim × P(ω) — scalar-equivalent default |
+| `UncertaintyPenalized` | sim × P(ω) × (1-u) — penalizes uncertain evidence |
+| `UncertaintyAwareBlend` | α·sim + β·P(ω) + γ·(1-u) — three-way blend |
 
 ---
 
