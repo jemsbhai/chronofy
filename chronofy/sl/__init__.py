@@ -28,6 +28,7 @@ try:
     from chronofy.sl.stl_opinion import OpinionSTLResult, OpinionSTLVerifier
     from chronofy.sl.trust import TrustEntry, TrustProfile, TrustWeightedDecay
     from chronofy.sl.pipeline import GroupedFusionResult, SLPipeline, SLPipelineResult
+    from chronofy.sl.opinion_graph import OpinionRuleGraph
 
     __all__ = [
         "OpinionDecayFunction",
@@ -51,6 +52,7 @@ try:
         "SLPipeline",
         "SLPipelineResult",
         "GroupedFusionResult",
+        "OpinionRuleGraph",
     ]
 
 except ImportError as e:
