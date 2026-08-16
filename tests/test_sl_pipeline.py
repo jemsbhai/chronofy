@@ -18,11 +18,9 @@ from chronofy.models import ReasoningStep, ReasoningTrace, TemporalFact
 from chronofy.retrieval.filter import EpistemicFilter
 from chronofy.sl.conflict import ConflictDetector, ConflictReport
 from chronofy.sl.fusion import FusionReport, TemporalEvidenceFusion
-from chronofy.sl.opinion_decay import OpinionConfig, OpinionDecayFunction
-from chronofy.sl.opinion_scorer import OpinionScorer, OpinionScoredFact
+from chronofy.sl.opinion_decay import OpinionDecayFunction
+from chronofy.sl.pipeline import GroupedFusionResult, SLPipeline
 from chronofy.sl.stl_opinion import OpinionSTLResult, OpinionSTLVerifier
-from chronofy.sl.pipeline import GroupedFusionResult, SLPipeline, SLPipelineResult
-
 
 QUERY_TIME = datetime(2026, 3, 15, 12, 0)
 
@@ -32,12 +30,18 @@ def _fact(
     days_ago: float,
     fact_type: str = "general",
     quality: float = 1.0,
+    proposition_key: str | None = None,
 ) -> TemporalFact:
     return TemporalFact(
         content=content,
         timestamp=QUERY_TIME - timedelta(days=days_ago),
         fact_type=fact_type,
         source_quality=quality,
+        metadata=(
+            {"proposition_key": proposition_key}
+            if proposition_key is not None
+            else {}
+        ),
     )
 
 
@@ -355,7 +359,6 @@ class TestSLPipelineProcess:
         )
         assert isinstance(result, OpinionSTLResult)
         # Should NOT be the scalar STLResult
-        from chronofy.verification.stl import STLResult
         # OpinionSTLResult is its own type, not STLResult
         assert type(result).__name__ == "OpinionSTLResult"
 
@@ -595,16 +598,16 @@ class TestSLPipelineGroupedFusion:
         Level 2 (across-proposition): possibilistic min (Theorem 1)
 
     The pipeline groups facts by proposition before fusing within groups.
-    Default grouping key is fact_type; users can supply a custom function.
+    The default prefers an explicit metadata proposition_key, then falls back
+    to exact content. fact_type is never treated as proposition identity.
     """
 
-    def test_groups_by_fact_type_default(self):
-        """process_full groups facts by fact_type for fusion."""
+    def test_default_separates_potassium_and_sodium(self):
+        """A shared decay category must not collapse distinct analytes."""
         pipe = SLPipeline.default(enable_fusion=True)
         candidates = [
             _fact("K+=4.1", 0.0, "vital_sign"),
-            _fact("K+=4.2", 0.1, "vital_sign"),
-            _fact("metformin", 0.0, "medication"),
+            _fact("Na+=138", 0.1, "vital_sign"),
         ]
         result = pipe.process_full(
             candidate_facts=candidates,
@@ -614,14 +617,52 @@ class TestSLPipelineGroupedFusion:
         assert result.fusion_report is not None
         gr = result.fusion_report
         assert isinstance(gr, GroupedFusionResult)
-        # Two groups: vital_sign and medication
-        assert "vital_sign" in gr.group_reports
-        assert "medication" in gr.group_reports
+        assert "K+=4.1" in gr.group_reports
+        assert "Na+=138" in gr.group_reports
         assert len(gr.group_reports) == 2
-        # vital_sign group has 2 facts fused
-        assert gr.group_reports["vital_sign"].source_count == 2
-        # medication group has 1 fact (trivial fusion)
-        assert gr.group_reports["medication"].source_count == 1
+        assert all(report.source_count == 1 for report in gr.group_reports.values())
+
+    def test_exact_same_content_uses_derived_key(self):
+        """Identical claims retain a safe zero-configuration fusion path."""
+        pipe = SLPipeline.default(enable_fusion=True)
+        candidates = [
+            _fact("K+=4.1", 0.0, "vital_sign"),
+            _fact("K+=4.1", 0.1, "vital_sign"),
+        ]
+        result = pipe.process_full(candidates, QUERY_TIME, _build_trace)
+        assert result.fusion_report is not None
+        assert result.fusion_report.group_keys == ["K+=4.1"]
+        assert result.fusion_report.group_reports["K+=4.1"].source_count == 2
+
+    def test_explicit_metadata_key_groups_value_varying_observations(self):
+        pipe = SLPipeline.default(enable_fusion=True)
+        candidates = [
+            _fact("K+=4.1", 0.0, "vital_sign", proposition_key="serum-potassium"),
+            _fact("K+=4.2", 0.1, "vital_sign", proposition_key="serum-potassium"),
+            _fact("Na+=138", 0.0, "vital_sign", proposition_key="serum-sodium"),
+        ]
+        result = pipe.process_full(candidates, QUERY_TIME, _build_trace)
+        assert result.fusion_report is not None
+        reports = result.fusion_report.group_reports
+        assert reports["serum-potassium"].source_count == 2
+        assert reports["serum-sodium"].source_count == 1
+
+    @pytest.mark.parametrize("bad_key", [None, "", "   ", 42])
+    def test_invalid_explicit_metadata_key_raises(self, bad_key):
+        pipe = SLPipeline.default(enable_fusion=True)
+        fact = _fact("K+=4.1", 0.0, "vital_sign")
+        fact.metadata["proposition_key"] = bad_key
+        with pytest.raises(ValueError, match="proposition_key.*non-empty string"):
+            pipe.process_full([fact], QUERY_TIME, _build_trace)
+
+    def test_invalid_custom_group_key_raises(self):
+        pipe = SLPipeline.default(enable_fusion=True, fusion_group_by=lambda fact: None)
+        with pytest.raises(ValueError, match="fusion_group_by.*non-empty string"):
+            pipe.process_full(
+                [_fact("K+=4.1", 0.0, "vital_sign")],
+                QUERY_TIME,
+                _build_trace,
+            )
 
     def test_custom_group_by(self):
         """Custom grouping function overrides default fact_type grouping."""
@@ -653,8 +694,8 @@ class TestSLPipelineGroupedFusion:
         """All facts in one group produces a single-entry GroupedFusionResult."""
         pipe = SLPipeline.default(enable_fusion=True)
         candidates = [
-            _fact("K+=4.1", 0.0, "vital_sign"),
-            _fact("K+=4.2", 0.1, "vital_sign"),
+            _fact("K+=4.1", 0.0, "vital_sign", proposition_key="serum-potassium"),
+            _fact("K+=4.2", 0.1, "vital_sign", proposition_key="serum-potassium"),
         ]
         result = pipe.process_full(
             candidate_facts=candidates,
@@ -664,7 +705,7 @@ class TestSLPipelineGroupedFusion:
         gr = result.fusion_report
         assert gr is not None
         assert len(gr.group_reports) == 1
-        assert "vital_sign" in gr.group_reports
+        assert "serum-potassium" in gr.group_reports
 
     def test_weakest_group(self):
         """weakest_group() returns the group with lowest fused P(ω')."""
@@ -687,7 +728,7 @@ class TestSLPipelineGroupedFusion:
         assert gr is not None
         key, report = gr.weakest_group()
         # Vital sign decays fast → it should be the weakest group
-        assert key == "vital_sign"
+        assert key == "K+=4.1"
 
     def test_strongest_group(self):
         """strongest_group() returns the group with highest fused P(ω')."""
@@ -707,15 +748,15 @@ class TestSLPipelineGroupedFusion:
         gr = result.fusion_report
         assert gr is not None
         key, report = gr.strongest_group()
-        assert key == "medication"
+        assert key == "metformin"
 
     def test_group_keys_ordered(self):
         """group_keys preserves insertion order of first-seen groups."""
         pipe = SLPipeline.default(enable_fusion=True)
         candidates = [
-            _fact("K+=4.1", 0.0, "vital_sign"),
-            _fact("metformin", 0.0, "medication"),
-            _fact("K+=4.2", 0.1, "vital_sign"),
+            _fact("K+=4.1", 0.0, "vital_sign", proposition_key="potassium"),
+            _fact("metformin", 0.0, "medication", proposition_key="medication"),
+            _fact("K+=4.2", 0.1, "vital_sign", proposition_key="potassium"),
         ]
         result = pipe.process_full(
             candidate_facts=candidates,
@@ -724,8 +765,7 @@ class TestSLPipelineGroupedFusion:
         )
         gr = result.fusion_report
         assert gr is not None
-        # First-seen order: vital_sign (from K+=4.1), medication
-        assert gr.group_keys == ["vital_sign", "medication"]
+        assert gr.group_keys == ["potassium", "medication"]
 
     def test_no_fusion_when_disabled(self):
         """fusion_report is None when fusion is not enabled."""

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "verified_as_of": "2026-08-15",
+  "policy": {
+    "raw_data_tracked": false,
+    "restricted_data_tracked": false,
+    "generated_embeddings_tracked": false,
+    "generated_results_tracked": false
+  },
+  "datasets": [
+    {
+      "id": "icews14-evoexplore",
+      "used_by": ["exp1", "exp3"],
+      "upstream_revision": "2b573b35b464870ab6f7f3105ee0b1704e0f4b2a",
+      "source": "https://github.com/zjs123/EvoExplore/tree/2b573b35b464870ab6f7f3105ee0b1704e0f4b2a/dataset/ICEWS14",
+      "acquisition_command": "poetry run python -m experiments.exp1_tkg_decay --download",
+      "local_path": "experiments/data/icews14",
+      "license_review_required": true,
+      "files_sha256": {
+        "stat.txt": "679358d774d38fb15d17897673f553d7ba9b86cb68b1846bd9c22c8cdfeed928",
+        "test.txt": "9e543f6ab6bac9cd1dc1e7429366d3da63cd1a5f967922c73d137062f0481667",
+        "train.txt": "0a56c8a660a0b11ad950c0ff065fb334e8f1d9c7f4f4b537221e6fd2fd617af9",
+        "valid.txt": "510ba87a63dcfa81461746765154da405935556b09d382a4167efa08dc07ea69"
+      }
+    },
+    {
+      "id": "mimic-iv-demo-2.2",
+      "used_by": ["exp3b", "exp3c"],
+      "version": "2.2",
+      "source": "https://physionet.org/content/mimic-iv-demo/2.2/",
+      "doi": "https://doi.org/10.13026/dp1f-ex47",
+      "acquisition_command": "poetry run python -m experiments.exp3b_clinical_beta --download",
+      "local_path": "experiments/data/mimic-iv-demo",
+      "access": "Open demo under the terms shown by PhysioNet; full MIMIC-IV is not used or redistributed.",
+      "license_review_required": true,
+      "checksum_manifest": "mimic-iv-clinical-database-demo-2.2/SHA256SUMS.txt",
+      "checksum_manifest_sha256": "19dfd55fac45035ba8e9f4c7e59180ee5184e877504f098e517a434d2646366a"
+    },
+    {
+      "id": "time-lite",
+      "used_by": ["exp2", "exp5", "exp6"],
+      "upstream_revision": "cd93b48ffeb8491f6d46359a8e2bf79495cb0ad3",
+      "source": "https://huggingface.co/datasets/SylvainWei/TIME-Lite/tree/cd93b48ffeb8491f6d46359a8e2bf79495cb0ad3",
+      "acquisition_command": "Downloaded into the Hugging Face cache by the applicable experiment command.",
+      "local_path": "Hugging Face cache outside this repository",
+      "license_review_required": true
+    },
+    {
+      "id": "gdelt-tflex",
+      "used_by": ["exp4"],
+      "upstream_revision": "8ee57955b595b4edddf39b5bb93ea3309bc3233f",
+      "source": "https://huggingface.co/datasets/linxy/GDELT/tree/8ee57955b595b4edddf39b5bb93ea3309bc3233f",
+      "acquisition_command": "poetry run python -m experiments.exp4_gdelt_decay --download",
+      "local_path": "Hugging Face cache outside this repository",
+      "license_review_required": true
+    }
+  ],
+  "models": [
+    {
+      "id": "sentence-transformers/all-MiniLM-L6-v2",
+      "used_by": ["exp5", "exp6"],
+      "upstream_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "source": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/tree/1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "used_by": ["exp2", "exp5"],
+      "immutable_revision": false,
+      "note": "Provider behavior can change behind this identifier; preserve raw response metadata locally and do not claim bit-for-bit reproducibility."
+    }
+  ]
+}

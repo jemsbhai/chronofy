@@ -2,7 +2,7 @@
 
 /**
  * Chronofy — Temporal validity framework for time-aware AI systems.
- * JavaScript port of chronofy v0.1.6 (Python).
+ * JavaScript implementation of the chronofy v0.1.6 core API.
  *
  * @see https://github.com/jemsbhai/chronofy
  */

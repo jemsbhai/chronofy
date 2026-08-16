@@ -4,12 +4,11 @@ Validates the evidence tuple (c, t_e, q, m) representation and the
 reasoning trace structure that enables STL verification.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
-from chronofy.models import TemporalFact, ReasoningStep, ReasoningTrace
-
+from chronofy.models import ReasoningStep, ReasoningTrace, TemporalFact
 
 # ---------------------------------------------------------------------------
 # TemporalFact

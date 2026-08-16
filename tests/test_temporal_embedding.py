@@ -14,19 +14,16 @@ Design goals tested:
 
 from __future__ import annotations
 
-import math
 from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
 
-from chronofy.models import TemporalFact
-
 # ─── Imports under test ───────────────────────────────────────────────
 from chronofy.embedding.base import TemporalEncoder
-from chronofy.embedding.sinusoidal import SinusoidalEncoder
 from chronofy.embedding.embedder import TemporalEmbedder
-
+from chronofy.embedding.sinusoidal import SinusoidalEncoder
+from chronofy.models import TemporalFact
 
 # ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -289,6 +286,58 @@ class TestTemporalEmbedder:
         embedder = TemporalEmbedder(encoder=enc, semantic_dims=384)
         assert embedder.total_dims == 16 + 384
 
+    @pytest.mark.parametrize("semantic_dims", [0, -1, 1.5, True])
+    def test_semantic_dims_must_be_a_positive_integer(self, semantic_dims):
+        enc = SinusoidalEncoder(temporal_dims=8)
+        with pytest.raises(ValueError, match="semantic_dims.*positive integer"):
+            TemporalEmbedder(encoder=enc, semantic_dims=semantic_dims)
+
+    def test_configured_semantic_dims_are_enforced(self):
+        embedder = TemporalEmbedder(
+            encoder=SinusoidalEncoder(temporal_dims=8),
+            semantic_dims=64,
+        )
+        with pytest.raises(ValueError, match="semantic_dims=64"):
+            embedder.embed([_fact(0)], _random_semantic(1, 32))
+
+    @pytest.mark.parametrize(
+        "semantic",
+        [
+            np.ones(64),
+            np.ones((1, 2, 32)),
+            np.empty((1, 0)),
+        ],
+    )
+    def test_semantic_vectors_require_2d_positive_shape(self, semantic):
+        embedder = TemporalEmbedder(encoder=SinusoidalEncoder(temporal_dims=8))
+        with pytest.raises(ValueError, match="shape|positive semantic dimension"):
+            embedder.embed([_fact(0)], semantic)
+
+    def test_encoder_temporal_dims_must_be_positive(self):
+        class ZeroDimEncoder(TemporalEncoder):
+            @property
+            def temporal_dims(self) -> int:
+                return 0
+
+            def encode(self, timestamps, reference_time=None):
+                return np.empty((len(timestamps), 0))
+
+        with pytest.raises(ValueError, match="temporal_dims.*positive integer"):
+            TemporalEmbedder(encoder=ZeroDimEncoder())
+
+    def test_encoder_output_shape_is_enforced(self):
+        class WrongShapeEncoder(TemporalEncoder):
+            @property
+            def temporal_dims(self) -> int:
+                return 4
+
+            def encode(self, timestamps, reference_time=None):
+                return np.zeros((len(timestamps), 3))
+
+        embedder = TemporalEmbedder(encoder=WrongShapeEncoder())
+        with pytest.raises(ValueError, match="encoder output.*shape"):
+            embedder.embed([_fact(0)], np.ones((1, 2)))
+
     def test_temporal_dims_property(self):
         """temporal_dims should be accessible via embedder."""
         enc = SinusoidalEncoder(temporal_dims=32)
@@ -354,6 +403,31 @@ class TestSimilarity:
         sims = embedder.cosine_similarity(query, facts)
         assert np.all(sims >= -1.0 - 1e-6)
         assert np.all(sims <= 1.0 + 1e-6)
+
+    def test_similarity_requires_documented_ranks(self):
+        embedder = TemporalEmbedder(encoder=SinusoidalEncoder(temporal_dims=8))
+        with pytest.raises(ValueError, match="query_embedding.*shape"):
+            embedder.cosine_similarity(np.ones((1, 16)), np.ones((1, 16)))
+        with pytest.raises(ValueError, match="fact_embeddings.*shape"):
+            embedder.cosine_similarity(np.ones(16), np.ones(16))
+
+    def test_similarity_requires_matching_dimensions(self):
+        embedder = TemporalEmbedder(encoder=SinusoidalEncoder(temporal_dims=8))
+        with pytest.raises(ValueError, match="dimensions must match"):
+            embedder.cosine_similarity(np.ones(16), np.ones((2, 15)))
+
+    def test_similarity_enforces_configured_total_dims(self):
+        embedder = TemporalEmbedder(
+            encoder=SinusoidalEncoder(temporal_dims=8),
+            semantic_dims=64,
+        )
+        with pytest.raises(ValueError, match="configured total_dims=72"):
+            embedder.cosine_similarity(np.ones(40), np.ones((2, 40)))
+
+    def test_similarity_requires_positive_semantic_dimension(self):
+        embedder = TemporalEmbedder(encoder=SinusoidalEncoder(temporal_dims=8))
+        with pytest.raises(ValueError, match="positive semantic dimension"):
+            embedder.cosine_similarity(np.ones(8), np.ones((2, 8)))
 
     def test_temporal_proximity_boosts_similarity(self):
         """Facts with closer timestamps should have higher similarity
@@ -456,8 +530,8 @@ class TestIntegrationWithScorer:
 
     def test_embedder_similarities_feed_into_scorer(self):
         """Cosine similarities from embedder can be passed to TemporalScorer."""
-        from chronofy.scoring.temporal_scorer import TemporalScorer
         from chronofy.decay.exponential import ExponentialDecay
+        from chronofy.scoring.temporal_scorer import TemporalScorer
 
         enc = SinusoidalEncoder(temporal_dims=8)
         embedder = TemporalEmbedder(encoder=enc)

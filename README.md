@@ -8,6 +8,15 @@
 
 Chronofy implements the **Temporal-Logical Decay Architecture (TLDA)** — a three-layer neuro-symbolic framework that embeds temporal validity directly into the representation, retrieval, and reasoning layers of Retrieval-Augmented Generation (RAG) systems. It also provides a standalone suite of temporal statistical tools useful outside of RAG.
 
+## Project resources
+
+- [Changelog and published-version index](CHANGELOG.md)
+- [Release and research-artifact policy](RELEASING.md)
+- [Experiment reproducibility guide](experiments/README.md)
+- [IRI 2026 paper source and build guide](papers/iri-2026/README.md)
+- [RuView integration roadmap](improvements/RUVIEW_INTEGRATION_PLAN.md)
+- [Independent npm package](npm/README.md)
+
 ---
 
 ## The Problem
@@ -72,6 +81,8 @@ Each layer is independently usable — you do not need all three.
 
 ## Quick Start
 
+<!-- executable-example: quick-start -->
+
 ```python
 from chronofy import (
     TemporalFact,
@@ -89,7 +100,7 @@ now = datetime.now()
 facts = [
     TemporalFact(
         content="Serum potassium: 4.1 mEq/L",
-        timestamp=now - timedelta(days=1),
+        timestamp=now - timedelta(hours=1),
         fact_type="vital_sign",
         source_quality=0.95,
     ),
@@ -125,8 +136,6 @@ valid_facts = ep_filter.filter(facts, query_time=now)
 for fact in valid_facts:
     score = decay.compute(fact, now)
     print(f"[{score:.4f}] {fact.content}")
-# [0.0067] Serum potassium: 4.1 mEq/L   ← 1 day old, high β
-# [1.0000] Blood type: O+               ← 10 years old, β=0 (invariant)
 # (6-month-old reading filtered out)
 
 # 4. Verify reasoning chain with STL
@@ -142,6 +151,14 @@ print(f"Confidence bound:   {result.output_confidence_bound:.4f}")
 
 if not result.satisfied:
     print(f"Re-acquisition needed for: {result.weakest_fact.content}")
+```
+
+```text
+[1.0000] Blood type: O+
+[0.7713] Serum potassium: 4.1 mEq/L
+STL satisfied:      True
+Robustness score:   0.7213
+Confidence bound:   0.7713
 ```
 
 ---
@@ -160,7 +177,7 @@ fact = TemporalFact(
     timestamp=datetime(2024, 6, 1, 8, 30),           # t_e: observation time
     fact_type="lab_result",                           # determines decay rate β_j
     source_quality=0.95,                              # q ∈ (0, 1]: reliability weight
-    publication_timestamp=datetime(2024, 6, 1, 9),   # optional: reporting time
+    publication_timestamp=datetime(2024, 6, 1, 9),   # optional: reporting provenance
     source="EPIC/LAB",                               # optional: provenance
     metadata={"units": "mEq/L", "method": "ISE"},   # optional: extra context
 )
@@ -169,7 +186,10 @@ fact = TemporalFact(
 age = fact.age_at(datetime.now())
 ```
 
-`observation_timestamp` is used for age computation by default. Use `publication_timestamp` when the two differ (e.g. a paper published today reporting data from 3 years ago).
+`age_at()` and the built-in decay functions compute age from `timestamp`. The optional
+`publication_timestamp` records reporting/publication provenance; it does not change age or
+validity. For a paper published today about data collected three years ago, set `timestamp` to
+the data-collection time and `publication_timestamp` to today.
 
 ---
 
@@ -495,36 +515,92 @@ Therefore the **optimal decay coefficient is β = 2κ** — twice the mean-rever
 - `β_lab_result ≈ 2.0` → κ ≈ 1.0 day⁻¹ (labs shift in days)
 - `β_demographic = 0.0` → κ = 0 (blood type is invariant)
 
-**Temporal Invariance Guarantee:** When β = 0, `exp(-β·Δt) = 1` for all ages. Chronofy correctly preserves the full value of stable facts regardless of how old they are.
+**Temporal Invariance Guarantee:** When β = 0, `exp(-β·Δt) = 1` for all ages. Age therefore adds no penalty: validity remains the fact's source-quality weight `q`, regardless of how old the fact is.
 
-See *Chronofy: A Temporal-Logical Decay Architecture for Information Validity in Time-Aware RAG* (IEEE IRI 2026) for the full derivation.
+See the [Chronofy arXiv preprint](https://arxiv.org/abs/2607.20560) for the full derivation.
 
 ---
 
 ## Full Pipeline
 
-The `ChronofyPipeline` composes all three layers:
+`ChronofyPipeline` orchestrates Layers 2–3 over candidate facts that have already been
+retrieved. It does not run Layer 1 temporal embedding or retrieval.
+
+The direct constructor accepts pre-built components as
+`ChronofyPipeline(filter=epistemic_filter, verifier=stl_verifier)`. The `default()` factory
+instead creates an `ExponentialDecay` shared by both components and accepts `beta`,
+`default_beta`, `time_unit`, `filter_threshold`, and `verifier_threshold`.
+
+`process(candidate_facts, query_time, build_trace)` filters the candidates, passes the surviving
+`list[TemporalFact]` to `build_trace`, and verifies the callback's `ReasoningTrace`. It returns
+`(valid_facts, stl_result)`. When no facts survive, the callback is not called and `stl_result`
+is `None`. The trace's own `query_time` drives verification, so the callback should set it to the
+same reference time when that is the intended behavior.
+
+<!-- executable-example: full-pipeline -->
 
 ```python
-from chronofy import ChronofyPipeline, ExponentialDecay
+from datetime import datetime, timedelta
+from chronofy import ChronofyPipeline, ReasoningStep, ReasoningTrace, TemporalFact
 
-decay = ExponentialDecay(beta={"vital_sign": 5.0, "demographic": 0.0})
+query_time = datetime(2026, 3, 15, 12, 0)
+candidate_facts = [
+    TemporalFact(
+        content="Current potassium: 4.1 mEq/L",
+        timestamp=query_time - timedelta(hours=1),
+        fact_type="vital_sign",
+    ),
+    TemporalFact(
+        content="Old potassium: 3.2 mEq/L",
+        timestamp=query_time - timedelta(days=180),
+        fact_type="vital_sign",
+    ),
+    TemporalFact(
+        content="Blood type: O+",
+        timestamp=query_time - timedelta(days=3650),
+        fact_type="demographic",
+    ),
+]
 
-pipeline = ChronofyPipeline(
-    decay_fn=decay,
+pipeline = ChronofyPipeline.default(
+    beta={"vital_sign": 5.0, "demographic": 0.0},
     filter_threshold=0.1,     # τ: epistemic filter threshold
-    stl_threshold=0.3,        # γ: STL validity threshold
+    verifier_threshold=0.3,   # γ: STL validity threshold
 )
 
-result = pipeline.run(
-    facts=my_facts,
-    query_time=datetime.now(),
-    reasoning_steps=my_steps,
+
+def build_trace(valid_facts: list[TemporalFact]) -> ReasoningTrace:
+    return ReasoningTrace(
+        steps=[
+            ReasoningStep(
+                step_index=0,
+                content="Assess arrhythmia risk",
+                facts_used=valid_facts,
+            )
+        ],
+        query_time=query_time,
+    )
+
+valid_facts, stl_result = pipeline.process(
+    candidate_facts=candidate_facts,
+    query_time=query_time,
+    build_trace=build_trace,
 )
 
-print(result.valid_facts)
-print(result.stl_result.satisfied)
-print(result.stl_result.output_confidence_bound)
+print([fact.content for fact in valid_facts])
+if stl_result is None:
+    print("No facts survived; re-acquisition is needed.")
+else:
+    print(f"STL satisfied:    {stl_result.satisfied}")
+    print(f"Robustness:       {stl_result.robustness:.4f}")
+    print(f"Confidence bound: {stl_result.output_confidence_bound:.4f}")
+```
+
+```text
+['Blood type: O+', 'Current potassium: 4.1 mEq/L']
+STL satisfied:    True
+Robustness:       0.5119
+Confidence bound: 0.8119
 ```
 
 ---
@@ -570,6 +646,13 @@ print(result.stl_result.output_confidence_bound)
 | `TemporalRule` | Temporal logical rule with confidence, body/head patterns |
 | `RuleMiner` | Apriori-based level-wise temporal rule mining |
 | `TemporalRuleGraph` | MDL-optimized rule graph with decay-weighted Personalized PageRank |
+
+Grounded rule-graph ranking and queries require the source triple store:
+`TemporalRuleGraph(rules, decay_fn, knowledge_graph=tkg)`. The older
+`known_entities=` argument remains an optional allowlist, but entity names alone
+cannot ground rules or facts. If `knowledge_graph` is omitted, PageRank and edge
+weights safely resolve to zero and `query()` returns no results; it no longer
+constructs representative facts from rule statistics.
 
 ### Scoring
 
@@ -628,7 +711,7 @@ The core framework uses scalar validity scores `V ∈ [0, 1]`. The `chronofy[sl]
 pip install chronofy[sl]
 ```
 
-Requires [jsonld-ex](https://pypi.org/project/jsonld-ex/) (automatically installed).
+Requires [jsonld-ex](https://pypi.org/project/jsonld-ex/) and NetworkX (automatically installed).
 
 ### Why Opinions matter
 
@@ -636,7 +719,9 @@ A scalar validity of 0.5 could mean:
 - "We have strong evidence that the probability is 50%" (b=0.45, d=0.45, u=0.10)
 - "We have no evidence at all" (b=0.0, d=0.0, u=1.0, a=0.5)
 
-These require very different downstream behavior. The SL extension makes this distinction throughout the entire pipeline.
+These require very different downstream behavior. The SL extension carries this distinction
+through its opinion-aware filtering, retrieval/scoring, fusion/conflict diagnostics, and STL
+verification components.
 
 ### Opinion-Based Decay
 
@@ -771,36 +856,56 @@ scorer = OpinionScorer(
 
 ### SL Module Summary
 
-| Class | Description |
+| Symbol | Description |
 |---|---|
-| `OpinionDecayFunction` | DecayFunction returning full Opinions; backward compatible via `compute()` |
+| `Opinion` | Subjective Logic opinion `(belief, disbelief, uncertainty, base rate)` from `jsonld-ex` |
+| `OpinionDecayFunction` | `compute()` returns projected probability; `compute_opinion()` returns the full Opinion |
 | `OpinionConfig` | Per-fact-type half_life, base_rate, base_uncertainty |
 | `TemporalEvidenceFusion` | Decay → (Byzantine filter) → cumulative/averaging fusion |
 | `FusionReport` | Fused opinion, per-source opinions, removed indices |
 | `ConflictDetector` | Pairwise conflict matrix, discord scores, cohesion |
 | `ConflictReport` | Full diagnostics: matrix, pairs, discord, internal conflicts |
+| `TrustEntry` | A source-trust Opinion with optional timestamp and half-life |
 | `TrustProfile` | Source → trust Opinion mapping with temporal trust decay |
 | `TrustWeightedDecay` | Dual decay channels: evidence aging ⊗ trust aging |
 | `OpinionSTLVerifier` | STL verification with per-step Opinions |
 | `OpinionSTLResult` | Step opinions, weakest-link opinion, scalar compat |
 | `OpinionScorer` | Rank facts using Opinion-aware strategies |
 | `OpinionScoredFact` | Fact + Opinion + scalar validity + combined score |
+| `OpinionScoringStrategy` | Abstract base for Opinion-aware scoring strategies |
 | `ProjectedMultiplicative` | sim × P(ω) — scalar-equivalent default |
 | `UncertaintyPenalized` | sim × P(ω) × (1-u) — penalizes uncertain evidence |
 | `UncertaintyAwareBlend` | α·sim + β·P(ω) + γ·(1-u) — three-way blend |
+| `SLPipeline` | Layer 2 filtering and Opinion-aware Layer 3 verification, with optional conflict and grouped fusion |
+| `SLPipelineResult` | Valid facts plus optional STL, conflict, grouped-fusion, and re-acquisition diagnostics |
+| `GroupedFusionResult` | Per-group fusion reports; fusion is performed only within each group |
+| `OpinionRuleGraph` | `TemporalRuleGraph` wrapper with Opinion-aware queries and optional probability/uncertainty filtering |
+| `OpinionEpistemicFilter` | Projected-probability and uncertainty thresholds with valid/stale/uncertain partitioning |
+| `OpinionPartitionResult` | Valid, stale, and uncertain `(fact, Opinion)` collections |
+
+When `SLPipeline` fusion is enabled, facts are grouped by
+`fact.metadata["proposition_key"]` when present, otherwise by exact content.
+`fact_type` is a decay category and is no longer used as the default proposition
+identity. For repeated observations whose values change, set a stable metadata
+key or pass `fusion_group_by`; callers whose domain guarantees one proposition
+per fact type can preserve the former behavior explicitly with
+`fusion_group_by=lambda fact: fact.fact_type`.
 
 ---
 
 ## Citation
 
 ```bibtex
-@inproceedings{syed2026chronofy,
+@misc{syed2026chronofytemporallogicaldecayarchitecture,
   title     = {Chronofy: A Temporal-Logical Decay Architecture for Information
                Validity in Time-Aware Retrieval-Augmented Generation},
-  author    = {Syed, Muntaser},
-  booktitle = {Proceedings of the IEEE International Conference on
-               Information Reuse and Integration (IRI)},
+  author    = {Muntaser Syed and Marius Silaghi and Sheikh Abujar and
+               Sharun Akter},
   year      = {2026},
+  eprint    = {2607.20560},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url       = {https://arxiv.org/abs/2607.20560},
 }
 ```
 

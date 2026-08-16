@@ -114,6 +114,7 @@ def validate_decay_function(fn: object) -> object:
         )
 
     # --- compute() return type and range ---
+    individual_scores: list[float] = []
     for probe in _PROBE_FACTS:
         try:
             score = fn.compute(probe, _PROBE_TIME)
@@ -123,7 +124,7 @@ def validate_decay_function(fn: object) -> object:
                 f"on probe fact '{probe.content}': {exc}"
             ) from exc
 
-        if not isinstance(score, (int, float)):
+        if isinstance(score, bool) or not isinstance(score, int | float):
             raise PluginValidationError(
                 f"{cls_name}.compute() must return a numeric float, "
                 f"got {type(score).__name__!r} (value={score!r}) "
@@ -149,6 +150,8 @@ def validate_decay_function(fn: object) -> object:
                 f"{cls_name}.compute() returned {score:.6f}, which is above 1.0. "
                 f"Validity scores must be in the range [0.0, 1.0]."
             )
+
+        individual_scores.append(float(score))
 
     # --- compute_batch() existence ---
     if not callable(getattr(fn, "compute_batch", None)):
@@ -176,6 +179,34 @@ def validate_decay_function(fn: object) -> object:
             f"for {len(_PROBE_FACTS)} input facts. "
             f"The batch output length must equal the input length."
         )
+
+    for index, (batch_score, individual_score) in enumerate(
+        zip(batch_scores, individual_scores)
+    ):
+        if isinstance(batch_score, bool) or not isinstance(batch_score, int | float):
+            raise PluginValidationError(
+                f"{cls_name}.compute_batch() item {index} must be numeric, "
+                f"got {type(batch_score).__name__!r} (value={batch_score!r})."
+            )
+        if not math.isfinite(batch_score):
+            raise PluginValidationError(
+                f"{cls_name}.compute_batch() item {index} is non-finite "
+                f"(value={batch_score!r}); batch scores must be finite values "
+                f"in [0.0, 1.0]."
+            )
+        if not 0.0 <= batch_score <= 1.0:
+            raise PluginValidationError(
+                f"{cls_name}.compute_batch() item {index} returned "
+                f"{batch_score!r}; batch scores must be in [0.0, 1.0]."
+            )
+        if not math.isclose(
+            float(batch_score), individual_score, rel_tol=1e-12, abs_tol=1e-12
+        ):
+            raise PluginValidationError(
+                f"{cls_name}.compute_batch() item {index} returned "
+                f"{batch_score!r}, but compute() returned {individual_score!r} "
+                f"for the same fact. Batch and scalar results must be consistent."
+            )
 
     return fn
 
@@ -241,7 +272,7 @@ def validate_scoring_strategy(strategy: object) -> object:
                 f"for (similarity={sim}, validity={val}): {exc}"
             ) from exc
 
-        if not isinstance(result, (int, float)):
+        if not isinstance(result, int | float):
             raise PluginValidationError(
                 f"{cls_name}.score() must return a numeric float, "
                 f"got {type(result).__name__!r} (value={result!r}) "
@@ -321,7 +352,7 @@ def validate_estimation_method(method: object) -> object:
             f"{cls_name}.fit() raised an unexpected exception on probe data: {exc}"
         ) from exc
 
-    if not isinstance(beta, (int, float)):
+    if not isinstance(beta, int | float):
         raise PluginValidationError(
             f"{cls_name}.fit() must return a numeric float (the estimated β), "
             f"got {type(beta).__name__!r} (value={beta!r})."

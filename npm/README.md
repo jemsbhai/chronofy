@@ -5,9 +5,20 @@
 [![npm version](https://img.shields.io/npm/v/chronofy.svg)](https://www.npmjs.com/package/chronofy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-JavaScript port of the [Chronofy Python package](https://pypi.org/project/chronofy/). Implements the **Temporal-Logical Decay Architecture (TLDA)** — a framework that embeds temporal validity into the representation, retrieval, and reasoning layers of AI systems.
+JavaScript implementation of Chronofy's core
+**Temporal-Logical Decay Architecture (TLDA)** APIs for temporal facts, scalar
+decay, filtering, verification, analysis, and scoring.
 
 Also available as a [Python package](https://pypi.org/project/chronofy/).
+
+## Package scope and versioning
+
+The npm and Python packages use independent semantic versions because the
+implementations ship on separate schedules. `chronofy@0.1.7` implements the
+JavaScript API documented below, based on the Python 0.1.6 core feature set.
+Python-only temporal embedding, graph and rule retrieval, and Subjective Logic
+modules are not included in the npm package. Matching npm and Python version
+numbers therefore do not imply feature parity.
 
 ---
 
@@ -39,12 +50,13 @@ const {
 
 const now = new Date();
 const daysAgo = (n) => new Date(now.getTime() - n * 86400000);
+const hoursAgo = (n) => new Date(now.getTime() - n * 3600000);
 
 // 1. Define timestamped facts
 const facts = [
   new TemporalFact({
     content: 'Serum potassium: 4.1 mEq/L',
-    timestamp: daysAgo(1),
+    timestamp: hoursAgo(1),
     factType: 'vital_sign',
     sourceQuality: 0.95,
   }),
@@ -76,7 +88,10 @@ const decay = new ExponentialDecay({
 // 3. Filter to temporally valid facts only
 const filter = new EpistemicFilter({ decayFn: decay, threshold: 0.1 });
 const validFacts = filter.filter(facts, now);
-// → [yesterday's reading, blood type]  (6-month reading filtered out)
+for (const fact of validFacts) {
+  console.log(`[${decay.compute(fact, now).toFixed(4)}] ${fact.content}`);
+}
+// The 6-month reading is filtered out.
 
 // 4. Verify reasoning chain with STL
 const step = new ReasoningStep({ stepIndex: 0, content: 'assess risk', factsUsed: validFacts });
@@ -88,6 +103,14 @@ const result = verifier.verify(trace);
 console.log(`STL satisfied:    ${result.satisfied}`);
 console.log(`Robustness:       ${result.robustness.toFixed(4)}`);
 console.log(`Confidence bound: ${result.outputConfidenceBound.toFixed(4)}`);
+```
+
+```text
+[0.7713] Serum potassium: 4.1 mEq/L
+[1.0000] Blood type: O+
+STL satisfied:    true
+Robustness:       0.7213
+Confidence bound: 0.7713
 ```
 
 ---
@@ -110,6 +133,10 @@ const fact = new TemporalFact({
 
 const ageDays = fact.ageAt(new Date());  // age in days at any reference time
 ```
+
+`ageAt()` and the built-in decay functions compute age from `timestamp`. The optional
+`publicationTimestamp` is reporting/publication provenance only; it does not change age or
+validity.
 
 ### Decay Functions
 
@@ -144,7 +171,7 @@ const score = decay.compute(fact, new Date());
 const scores = decay.computeBatch(facts, new Date());
 ```
 
-**Temporal Invariance Guarantee:** When `β = 0`, validity is always `1.0` regardless of age — stable facts like blood type are never penalised.
+**Temporal Invariance Guarantee:** When `β = 0`, the temporal multiplier remains `1.0`, so validity stays at the fact's `sourceQuality` regardless of age.
 
 ### EpistemicFilter
 
@@ -411,13 +438,16 @@ const decay = ExponentialDecay.fromMeanReversionRate({
 ## Citation
 
 ```bibtex
-@inproceedings{syed2026chronofy,
+@misc{syed2026chronofytemporallogicaldecayarchitecture,
   title     = {Chronofy: A Temporal-Logical Decay Architecture for Information
                Validity in Time-Aware Retrieval-Augmented Generation},
-  author    = {Syed, Muntaser},
-  booktitle = {Proceedings of the IEEE International Conference on
-               Information Reuse and Integration (IRI)},
+  author    = {Muntaser Syed and Marius Silaghi and Sheikh Abujar and
+               Sharun Akter},
   year      = {2026},
+  eprint    = {2607.20560},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url       = {https://arxiv.org/abs/2607.20560},
 }
 ```
 

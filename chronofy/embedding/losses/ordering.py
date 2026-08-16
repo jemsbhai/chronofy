@@ -7,8 +7,10 @@ which one is earlier. Uses a pairwise margin ranking loss.
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as functional
 
 from chronofy.embedding.losses.base import TemporalLoss
 
@@ -41,7 +43,7 @@ class TemporalOrderingLoss(TemporalLoss):
         *,
         embeddings: torch.Tensor,
         timestamps: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         n = embeddings.shape[0]
         if n < 2:
@@ -79,5 +81,7 @@ class TemporalOrderingLoss(TemporalLoss):
         s_j = scores[idx_j][non_tie]
         target = target[non_tie]
 
-        loss = F.margin_ranking_loss(s_i, s_j, target, margin=self.margin)
+        loss = functional.margin_ranking_loss(
+            s_i, s_j, target, margin=self.margin
+        )
         return loss

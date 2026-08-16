@@ -15,6 +15,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from chronofy.decay._validation import (
+    validate_parameter,
+    validate_parameter_map,
+    validate_time_unit,
+)
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
 
@@ -34,9 +39,11 @@ class LinearDecay(DecayFunction):
         default_rate: float = 0.1,
         time_unit: str = "days",
     ) -> None:
-        self._rate = rate or {}
-        self._default_rate = default_rate
-        self._time_divisor = {"seconds": 1.0, "hours": 3600.0, "days": 86400.0}[time_unit]
+        self._rate = validate_parameter_map(rate, "rate", positive=False)
+        self._default_rate = validate_parameter(
+            default_rate, "default_rate", positive=False
+        )
+        self._time_divisor = validate_time_unit(time_unit)
 
     def _get_rate(self, fact_type: str) -> float:
         return self._rate.get(fact_type, self._default_rate)

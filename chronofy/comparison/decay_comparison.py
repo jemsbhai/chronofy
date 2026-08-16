@@ -250,8 +250,8 @@ def _auroc(scores: list[float], labels: list[int]) -> float:
 
     Returns 0.5 when all scores are equal (no discrimination).
     """
-    pos_scores = [s for s, l in zip(scores, labels) if l == 1]
-    neg_scores = [s for s, l in zip(scores, labels) if l == 0]
+    pos_scores = [score for score, label in zip(scores, labels) if label == 1]
+    neg_scores = [score for score, label in zip(scores, labels) if label == 0]
 
     n_pos = len(pos_scores)
     n_neg = len(neg_scores)
@@ -281,7 +281,7 @@ def _brier_score(scores: list[float], labels: list[int]) -> float:
     n = len(scores)
     if n == 0:
         return 0.0
-    return sum((s - l) ** 2 for s, l in zip(scores, labels)) / n
+    return sum((score - label) ** 2 for score, label in zip(scores, labels)) / n
 
 
 def _log_loss(scores: list[float], labels: list[int]) -> float:
@@ -294,9 +294,9 @@ def _log_loss(scores: list[float], labels: list[int]) -> float:
     if n == 0:
         return 0.0
     total = 0.0
-    for s, l in zip(scores, labels):
-        p = max(_LOG_CLIP, min(1.0 - _LOG_CLIP, s))
-        if l == 1:
+    for score, label in zip(scores, labels):
+        p = max(_LOG_CLIP, min(1.0 - _LOG_CLIP, score))
+        if label == 1:
             total -= math.log(p)
         else:
             total -= math.log(1.0 - p)
@@ -314,7 +314,7 @@ def _spearman(scores: list[float], labels: list[int]) -> float:
         return 0.0
 
     score_ranks = _rank(scores)
-    label_ranks = _rank([float(l) for l in labels])
+    label_ranks = _rank([float(label) for label in labels])
 
     # Pearson correlation on ranks = Spearman correlation
     return _pearson(score_ranks, label_ranks)

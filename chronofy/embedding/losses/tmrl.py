@@ -11,7 +11,7 @@ Reference:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -72,7 +72,10 @@ class TMRLLoss(nn.Module):
         )
         l_cka = self.cka_loss(X=full_embeddings, Y=truncated_embeddings)
 
-        return l_sem + self.alpha_temporal * l_temp + self.beta_cka * l_cka
+        return cast(
+            torch.Tensor,
+            l_sem + self.alpha_temporal * l_temp + self.beta_cka * l_cka,
+        )
 
     def forward_with_components(
         self,

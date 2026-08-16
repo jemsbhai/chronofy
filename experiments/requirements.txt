@@ -1,0 +1,5 @@
+# Additional, experiment-only top-level dependencies. The supported Chronofy
+# library dependencies (including torch and sentence-transformers) are locked in
+# ../poetry.lock and installed with `poetry install --all-extras`.
+datasets==2.21.0
+google-generativeai==0.8.5

@@ -20,6 +20,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import numpy as np
+import numpy.typing as npt
 
 from chronofy.embedding.base import TemporalEncoder
 from chronofy.models import TemporalFact
@@ -93,7 +94,7 @@ class SinusoidalEncoder(TemporalEncoder):
         self,
         timestamps: list[datetime],
         reference_time: datetime | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.float64]:
         """Encode timestamps into sinusoidal temporal vectors.
 
         Args:
@@ -130,7 +131,7 @@ class SinusoidalEncoder(TemporalEncoder):
         self,
         facts: list[TemporalFact],
         reference_time: datetime | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.float64]:
         """Convenience: encode timestamps extracted from TemporalFacts."""
         timestamps = [f.timestamp for f in facts]
         return self.encode(timestamps, reference_time=reference_time)

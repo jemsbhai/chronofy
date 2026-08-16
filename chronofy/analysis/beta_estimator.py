@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -339,7 +340,7 @@ class BetaEstimator:
         half_life = math.log(2) / beta if beta > 0.0 else float("inf")
         ll = (
             _log_likelihood_bernoulli(beta, ages, valid)
-            if isinstance(self._method, (MLEBernoulli, EnsembleMethod))
+            if isinstance(self._method, MLEBernoulli | EnsembleMethod)
             else float("nan")
         )
 
@@ -424,7 +425,7 @@ class BetaEstimator:
 
 
 def _golden_section_max(
-    f: "callable[[float], float]",
+    f: Callable[[float], float],
     lo: float,
     hi: float,
     tol: float = 1e-8,

@@ -11,8 +11,10 @@ Reference:
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as functional
 
 from chronofy.embedding.losses.base import TemporalLoss
 
@@ -49,7 +51,7 @@ class AlignmentUniformityLoss(TemporalLoss):
 
     def _alignment(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Alignment loss: mean ||x_i - y_i||^p over positive pairs."""
-        return (x - y).norm(dim=1).pow(self.p).mean()
+        return cast(torch.Tensor, (x - y).norm(dim=1).pow(self.p).mean())
 
     def _uniformity(self, x: torch.Tensor) -> torch.Tensor:
         """Uniformity loss: log-mean-exp of pairwise distances."""
@@ -65,10 +67,10 @@ class AlignmentUniformityLoss(TemporalLoss):
         *,
         x_positive: torch.Tensor,
         y_positive: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
-        x_norm = F.normalize(x_positive, dim=1)
-        y_norm = F.normalize(y_positive, dim=1)
+        x_norm = functional.normalize(x_positive, dim=1)
+        y_norm = functional.normalize(y_positive, dim=1)
 
         l_align = self._alignment(x_norm, y_norm)
         l_uniform = (self._uniformity(x_norm) + self._uniformity(y_norm)) / 2.0
@@ -80,10 +82,10 @@ class AlignmentUniformityLoss(TemporalLoss):
         *,
         x_positive: torch.Tensor,
         y_positive: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> tuple[torch.Tensor, dict[str, float]]:
-        x_norm = F.normalize(x_positive, dim=1)
-        y_norm = F.normalize(y_positive, dim=1)
+        x_norm = functional.normalize(x_positive, dim=1)
+        y_norm = functional.normalize(y_positive, dim=1)
 
         l_align = self._alignment(x_norm, y_norm)
         l_uniform = (self._uniformity(x_norm) + self._uniformity(y_norm)) / 2.0

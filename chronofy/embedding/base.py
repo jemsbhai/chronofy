@@ -17,8 +17,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from chronofy.models import TemporalFact
 
@@ -57,7 +59,7 @@ class TemporalEncoder(ABC):
         self,
         timestamps: list[datetime],
         reference_time: datetime | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.floating[Any]]:
         """Encode a list of timestamps into temporal vectors.
 
         Args:
@@ -75,7 +77,7 @@ class TemporalEncoder(ABC):
         self,
         facts: list[TemporalFact],
         reference_time: datetime | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.floating[Any]]:
         """Convenience: encode timestamps extracted from TemporalFacts.
 
         Args:

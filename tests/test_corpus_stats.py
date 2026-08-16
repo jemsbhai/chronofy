@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from chronofy.analysis.corpus_stats import AgeStats, CorpusStats, ValidityStats
+from chronofy.analysis.corpus_stats import CorpusStats
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.decay.linear import LinearDecay
 from chronofy.models import TemporalFact

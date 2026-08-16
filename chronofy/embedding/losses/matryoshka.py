@@ -11,6 +11,8 @@ Reference:
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 
 from chronofy.embedding.losses.base import TemporalLoss
@@ -43,7 +45,7 @@ class MatryoshkaTruncationLoss(TemporalLoss):
         self,
         *,
         embeddings: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         """Compute average CKA loss across truncation scales.
 

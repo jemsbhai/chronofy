@@ -1,0 +1,179 @@
+name: Paper
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manuscript:
+    name: Structure, anonymity, and reproducible PDF
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check manuscript structure
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("papers/iri-2026/chronofy-iri-2026.tex")
+          manuscript = source.read_text(encoding="utf-8")
+          ordered_markers = [
+              r"\begin{document}",
+              r"\begin{abstract}",
+              r"\end{abstract}",
+              r"\begin{thebibliography}",
+              r"\end{thebibliography}",
+              r"\end{document}",
+          ]
+
+          for marker in ordered_markers:
+              count = manuscript.count(marker)
+              if count != 1:
+                  raise SystemExit(f"Expected one {marker!r}; found {count}.")
+
+          experiment_four = r"\subsection{Experiment 4:"
+          experiment_four_count = manuscript.count(experiment_four)
+          if experiment_four_count != 1:
+              raise SystemExit(
+                  "Expected one Experiment 4 section; "
+                  f"found {experiment_four_count}."
+              )
+
+          positions = [manuscript.index(marker) for marker in ordered_markers]
+          if positions != sorted(positions):
+              raise SystemExit("Manuscript sections are not in canonical order.")
+
+          suffix = manuscript.split(r"\end{document}", maxsplit=1)[1]
+          if suffix.strip():
+              raise SystemExit("Unexpected content follows \\end{document}.")
+
+          for marker in (
+              r"\ifdefined\ChronofyCameraReady",
+              r"\hypersetup{pdfauthor={Anonymous Authors}}",
+              r"\author{\IEEEauthorblockN{Anonymous Authors}}",
+          ):
+              if marker not in manuscript:
+                  raise SystemExit(f"Missing anonymity control {marker!r}.")
+          PY
+
+      - name: Install the TeX toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            poppler-utils \
+            texlive-fonts-recommended \
+            texlive-latex-base \
+            texlive-latex-extra \
+            texlive-latex-recommended \
+            texlive-pictures \
+            texlive-publishers \
+            texlive-science
+
+      - name: Build the anonymous PDF twice
+        working-directory: papers/iri-2026
+        run: |
+          export FORCE_SOURCE_DATE=1
+          export TZ=UTC
+          source_date_epoch="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH="$source_date_epoch"
+
+          build_dir=build/ci
+          mkdir -p "$build_dir"
+          for build_name in first second; do
+            find "$build_dir" -mindepth 1 -delete
+            for _ in 1 2 3; do
+              pdflatex \
+                -interaction=nonstopmode \
+                -halt-on-error \
+                -file-line-error \
+                -output-directory="$build_dir" \
+                chronofy-iri-2026.tex
+            done
+            cp \
+              "$build_dir/chronofy-iri-2026.pdf" \
+              "$RUNNER_TEMP/chronofy-$build_name.pdf"
+          done
+
+          cmp --silent \
+            "$RUNNER_TEMP/chronofy-first.pdf" \
+            "$RUNNER_TEMP/chronofy-second.pdf"
+
+      - name: Check references and submission anonymity
+        working-directory: papers/iri-2026
+        run: |
+          log=build/ci/chronofy-iri-2026.log
+          pdf="$RUNNER_TEMP/chronofy-first.pdf"
+          test -s "$pdf"
+
+          if grep -Eiq \
+            'undefined references|Citation .* undefined|Reference .* undefined|Label\(s\) may have changed' \
+            "$log"; then
+            grep -Ei \
+              'undefined references|Citation .* undefined|Reference .* undefined|Label\(s\) may have changed' \
+              "$log" >&2
+            exit 1
+          fi
+
+          pdfinfo "$pdf" > "$RUNNER_TEMP/chronofy-pdfinfo.txt"
+          pdftotext -layout "$pdf" "$RUNNER_TEMP/chronofy-manuscript.txt"
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          runner_temp = Path(os.environ["RUNNER_TEMP"])
+          pdf_info = runner_temp.joinpath("chronofy-pdfinfo.txt").read_text(
+              encoding="utf-8"
+          )
+          manuscript = runner_temp.joinpath("chronofy-manuscript.txt").read_text(
+              encoding="utf-8"
+          )
+
+          metadata = {}
+          for line in pdf_info.splitlines():
+              key, separator, value = line.partition(":")
+              if separator:
+                  metadata[key.strip()] = value.strip()
+
+          if metadata.get("Author") != "Anonymous Authors":
+              raise SystemExit(
+                  f"Unexpected PDF author metadata: {metadata.get('Author')!r}."
+              )
+
+          normalized = manuscript.casefold()
+          if "anonymous authors" not in normalized:
+              raise SystemExit("Anonymous byline is missing from the submission PDF.")
+
+          identity_leaks = (
+              "muntaser syed",
+              "marius silaghi",
+              "sheikh abujar",
+              "sharun akter",
+              "msyed2011",
+              "msilaghi@",
+              "sabujar@",
+              "sharun.cse@",
+              "florida institute of technology",
+              "university of alabama at birmingham",
+              "daffodil international university",
+              "pypi.org/project/chronofy",
+              "github.com/jemsbhai",
+          )
+          leaks = [value for value in identity_leaks if value in normalized]
+          if leaks:
+              raise SystemExit(f"Submission PDF leaks author identity: {leaks!r}.")
+          PY

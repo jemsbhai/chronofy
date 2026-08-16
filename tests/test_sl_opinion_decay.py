@@ -24,8 +24,7 @@ from jsonld_ex.confidence_algebra import Opinion
 
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
-from chronofy.sl.opinion_decay import OpinionDecayFunction, OpinionConfig
-
+from chronofy.sl.opinion_decay import OpinionConfig, OpinionDecayFunction
 
 # ---------------------------------------------------------------------------
 # Constants and helpers
@@ -359,8 +358,8 @@ class TestIntegration:
         assert 0.0 <= results[0].validity <= 1.0
 
     def test_works_with_stl_verifier(self):
-        from chronofy.verification.stl import STLVerifier
         from chronofy.models import ReasoningStep, ReasoningTrace
+        from chronofy.verification.stl import STLVerifier
 
         odf = OpinionDecayFunction(half_lives={"general": 7.0})
         verifier = STLVerifier(decay_fn=odf, threshold=0.1)

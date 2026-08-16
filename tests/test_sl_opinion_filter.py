@@ -21,14 +21,12 @@ TDD: Tests written before implementation.
 from datetime import datetime, timedelta
 
 import pytest
-
 from jsonld_ex.confidence_algebra import Opinion
 
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import TemporalFact
 from chronofy.sl.opinion_decay import OpinionDecayFunction
 from chronofy.sl.opinion_filter import OpinionEpistemicFilter, OpinionPartitionResult
-
 
 QUERY_TIME = datetime(2026, 3, 15, 12, 0)
 
@@ -286,15 +284,13 @@ class TestOpinionFilterPartition:
         # but u is above 0.3
         facts = [_fact("moderate", 2.0, "vital_sign")]
         result = ef.partition(facts, QUERY_TIME)
-        # Verify the opinion has u > 0.3 and P ≥ 0.5
+        # At exactly two half-lives, quality=1.0 leaves 25% belief and
+        # transfers 75% to uncertainty: P = 0.25 + 0.5 * 0.75 = 0.625.
         opinion = odf.compute_opinion(facts[0], QUERY_TIME)
-        if opinion.projected_probability() >= 0.5 and opinion.uncertainty > 0.3:
-            assert len(result.uncertain) == 1
-            assert result.uncertain[0][0].content == "moderate"
-        else:
-            # If the math doesn't produce the expected range, skip
-            # (this protects against parameter sensitivity)
-            pytest.skip("Decay parameters don't produce uncertain-category fact")
+        assert opinion.projected_probability() == pytest.approx(0.625)
+        assert opinion.uncertainty == pytest.approx(0.75)
+        assert len(result.uncertain) == 1
+        assert result.uncertain[0][0].content == "moderate"
 
     def test_partition_covers_all_facts(self):
         """Every input fact appears in exactly one partition category."""

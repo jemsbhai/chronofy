@@ -12,8 +12,8 @@ Design principles:
 
 from __future__ import annotations
 
-from abc import abstractmethod
-from typing import Any, Type
+import inspect
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -71,20 +71,9 @@ class TemporalLoss(nn.Module):
         """Unique string identifier for this loss."""
         raise NotImplementedError
 
-    def forward(self, **kwargs: Any) -> torch.Tensor:
-        """Compute the loss. Must return a scalar tensor.
-
-        All inputs are passed as keyword arguments so that CompositeLoss
-        can route the right kwargs to each component.
-        """
-        raise NotImplementedError
-
-
 def _is_abstract(cls: type) -> bool:
     """Check if a class is intended to be abstract (has unimplemented methods)."""
-    # A class is abstract if it has abstractmethod markers or
-    # if forward/name are not in its own __dict__
-    return getattr(cls, "__abstractmethods__", None) is not None and len(cls.__abstractmethods__) > 0
+    return inspect.isabstract(cls)
 
 
 def _has_own_property(cls: type, name: str) -> bool:
@@ -112,11 +101,11 @@ class LossRegistry:
     """
 
     def __init__(self) -> None:
-        self._registry: dict[str, Type[TemporalLoss]] = {}
+        self._registry: dict[str, type[TemporalLoss]] = {}
 
     def register(
         self,
-        loss_cls: Type[TemporalLoss],
+        loss_cls: type[TemporalLoss],
         name: str | None = None,
     ) -> None:
         """Register a loss class.

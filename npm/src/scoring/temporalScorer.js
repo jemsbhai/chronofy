@@ -45,11 +45,14 @@ class PowerScoring extends ScoringStrategy {
   /** @param {number} alpha ∈ [0, 1] */
   constructor(alpha) {
     super();
-    if (alpha < 0 || alpha > 1) throw new Error('alpha must be in [0, 1]');
+    if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1)
+      throw new Error('alpha must be a finite number in [0, 1]');
     this._alpha = alpha;
   }
   get alpha() { return this._alpha; }
   score(similarity, validity) {
+    if (this._alpha === 1) return similarity;
+    if (this._alpha === 0) return validity;
     if (similarity <= 0 || validity <= 0) return 0;
     return Math.pow(similarity, this._alpha) * Math.pow(validity, 1 - this._alpha);
   }

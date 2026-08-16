@@ -28,14 +28,10 @@ import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from numbers import Real
 
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
-
 
 # ---------------------------------------------------------------------------
 # ScoredFact — immutable result carrier
@@ -200,19 +196,29 @@ class PowerScoring(ScoringStrategy):
     """
 
     def __init__(self, alpha: float) -> None:
-        if not 0.0 <= alpha <= 1.0:
+        if (
+            isinstance(alpha, bool)
+            or not isinstance(alpha, Real)
+            or not math.isfinite(float(alpha))
+            or not 0.0 <= alpha <= 1.0
+        ):
             raise ValueError(
-                f"alpha must be in [0.0, 1.0], got {alpha}. "
+                f"alpha must be a finite number in [0.0, 1.0], got {alpha!r}. "
                 f"alpha=1.0 gives pure similarity; alpha=0.0 gives pure validity."
             )
-        self._alpha = alpha
+        self._alpha: float = float(alpha)
 
     @property
     def alpha(self) -> float:
         return self._alpha
 
     def score(self, similarity: float, validity: float) -> float:
-        # Handle zero bases explicitly to avoid 0^0 ambiguity
+        # At the endpoints, define the zero-exponent factor as 1 so the
+        # documented pure-similarity / pure-validity semantics also hold at 0.
+        if self._alpha == 1.0:
+            return float(similarity)
+        if self._alpha == 0.0:
+            return float(validity)
         if similarity <= 0.0 or validity <= 0.0:
             return 0.0
         return float((similarity ** self._alpha) * (validity ** (1.0 - self._alpha)))

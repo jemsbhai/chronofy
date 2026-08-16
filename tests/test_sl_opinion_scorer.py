@@ -40,17 +40,16 @@ from jsonld_ex.confidence_algebra import Opinion
 
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import TemporalFact
-from chronofy.scoring.temporal_scorer import TemporalScorer, MultiplicativeScoring
-from chronofy.sl.opinion_decay import OpinionDecayFunction, OpinionConfig
+from chronofy.scoring.temporal_scorer import MultiplicativeScoring, TemporalScorer
+from chronofy.sl.opinion_decay import OpinionDecayFunction
 from chronofy.sl.opinion_scorer import (
     OpinionScoredFact,
+    OpinionScorer,
     OpinionScoringStrategy,
     ProjectedMultiplicative,
-    UncertaintyPenalized,
     UncertaintyAwareBlend,
-    OpinionScorer,
+    UncertaintyPenalized,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants and helpers
@@ -502,6 +501,7 @@ class TestUncertaintyAdvantage:
         proj_ranked = proj_scorer.rank(facts, sims, QUERY_TIME)
         uncert_ranked = uncert_scorer.rank(facts, sims, QUERY_TIME)
 
+        assert {sf.fact.content for sf in proj_ranked} == {"fresh", "old"}
         # UncertaintyPenalized should more strongly prefer the fresh fact
         # (even if proj rankings might be similar), because (1-u) penalizes old
         uncert_scores = {sf.fact.content: sf.combined_score for sf in uncert_ranked}

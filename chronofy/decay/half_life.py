@@ -17,6 +17,11 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
+from chronofy.decay._validation import (
+    validate_parameter,
+    validate_parameter_map,
+    validate_time_unit,
+)
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
 
@@ -36,16 +41,13 @@ class HalfLifeDecay(DecayFunction):
         default_half_life: float = 7.0,
         time_unit: str = "days",
     ) -> None:
-        self._half_life = half_life or {}
-        self._default_half_life = default_half_life
-        self._time_divisor = {"seconds": 1.0, "hours": 3600.0, "days": 86400.0}[time_unit]
-
-        # Validate: all half-lives must be positive
-        for ft, h in self._half_life.items():
-            if h <= 0:
-                raise ValueError(f"Half-life must be positive, got {h} for '{ft}'")
-        if default_half_life <= 0:
-            raise ValueError(f"Default half-life must be positive, got {default_half_life}")
+        self._half_life = validate_parameter_map(
+            half_life, "half_life", positive=True
+        )
+        self._default_half_life = validate_parameter(
+            default_half_life, "default_half_life", positive=True
+        )
+        self._time_divisor = validate_time_unit(time_unit)
 
     def _get_half_life(self, fact_type: str) -> float:
         return self._half_life.get(fact_type, self._default_half_life)
@@ -57,7 +59,7 @@ class HalfLifeDecay(DecayFunction):
     def compute(self, fact: TemporalFact, query_time: datetime) -> float:
         h = self._get_half_life(fact.fact_type)
         age = self._age_in_units(fact, query_time)
-        return fact.source_quality * (0.5 ** (age / h))
+        return float(fact.source_quality * (0.5 ** (age / h)))
 
     def compute_batch(self, facts: list[TemporalFact], query_time: datetime) -> list[float]:
         return [self.compute(f, query_time) for f in facts]

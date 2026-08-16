@@ -44,7 +44,7 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 from jsonld_ex.confidence_algebra import (
@@ -53,9 +53,8 @@ from jsonld_ex.confidence_algebra import (
     pairwise_conflict,
 )
 
-from chronofy.sl.opinion_decay import OpinionDecayFunction
 from chronofy.models import TemporalFact
-
+from chronofy.sl.opinion_decay import OpinionDecayFunction
 
 # ═══════════════════════════════════════════════════════════════════
 # Report

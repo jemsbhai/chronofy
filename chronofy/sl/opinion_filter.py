@@ -52,7 +52,6 @@ from jsonld_ex.confidence_algebra import Opinion
 from chronofy.models import TemporalFact
 from chronofy.sl.opinion_decay import OpinionDecayFunction
 
-
 # ═══════════════════════════════════════════════════════════════════
 # Partition result
 # ═══════════════════════════════════════════════════════════════════

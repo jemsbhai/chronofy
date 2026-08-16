@@ -12,10 +12,6 @@ Requires torch (part of the [ml] extra).
 
 from __future__ import annotations
 
-import math
-from datetime import datetime, timedelta
-
-import numpy as np
 import pytest
 
 try:
@@ -235,14 +231,14 @@ class TestCompositeLoss:
     """Weighted ensembling of multiple losses."""
 
     def test_single_loss_passthrough(self):
-        from chronofy.embedding.losses import CompositeLoss, CKALoss
+        from chronofy.embedding.losses import CKALoss, CompositeLoss
 
         cka = CKALoss()
         composite = CompositeLoss(losses={"cka": (cka, 1.0)})
-        X = torch.randn(16, 32)
-        Y = torch.randn(16, 16)
-        result = composite(cka={"X": X, "Y": Y})
-        direct = cka(X=X, Y=Y)
+        x = torch.randn(16, 32)
+        y = torch.randn(16, 16)
+        result = composite(cka={"X": x, "Y": y})
+        direct = cka(X=x, Y=y)
         assert result.item() == pytest.approx(direct.item(), abs=1e-5)
 
     def test_weighted_combination(self):
@@ -269,23 +265,23 @@ class TestCompositeLoss:
         assert result.item() == pytest.approx(expected, abs=1e-5)
 
     def test_gradient_flows_through_all(self):
-        from chronofy.embedding.losses import CompositeLoss, CKALoss, TemporalContrastiveLoss
+        from chronofy.embedding.losses import CKALoss, CompositeLoss, TemporalContrastiveLoss
 
         cka = CKALoss()
         tc = TemporalContrastiveLoss()
         composite = CompositeLoss(losses={"cka": (cka, 0.5), "tc": (tc, 0.3)})
 
-        X = torch.randn(16, 32, requires_grad=True)
-        Y = torch.randn(16, 16)
+        x = torch.randn(16, 32, requires_grad=True)
+        y = torch.randn(16, 16)
         emb = torch.randn(16, 8, requires_grad=True)
         ts = torch.arange(16, dtype=torch.float32)
 
         total = composite(
-            cka={"X": X, "Y": Y},
+            cka={"X": x, "Y": y},
             tc={"embeddings": emb, "timestamps": ts},
         )
         total.backward()
-        assert X.grad is not None
+        assert x.grad is not None
         assert emb.grad is not None
 
     def test_forward_with_components(self):
@@ -398,52 +394,52 @@ class TestCKALoss:
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        assert cka.cka_similarity(X, X).item() == pytest.approx(1.0, abs=1e-4)
+        x = torch.randn(32, 64)
+        assert cka.cka_similarity(x, x).item() == pytest.approx(1.0, abs=1e-4)
 
     def test_loss_of_identical_is_zero(self):
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        assert cka(X=X, Y=X).item() == pytest.approx(0.0, abs=1e-4)
+        x = torch.randn(32, 64)
+        assert cka(X=x, Y=x).item() == pytest.approx(0.0, abs=1e-4)
 
     def test_cka_in_zero_one(self):
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        Y = torch.randn(32, 32)
-        sim = cka.cka_similarity(X, Y)
+        x = torch.randn(32, 64)
+        y = torch.randn(32, 32)
+        sim = cka.cka_similarity(x, y)
         assert 0.0 <= sim.item() <= 1.0 + 1e-6
 
     def test_cka_is_symmetric(self):
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        Y = torch.randn(32, 64)
-        assert cka.cka_similarity(X, Y).item() == pytest.approx(
-            cka.cka_similarity(Y, X).item(), abs=1e-5
+        x = torch.randn(32, 64)
+        y = torch.randn(32, 64)
+        assert cka.cka_similarity(x, y).item() == pytest.approx(
+            cka.cka_similarity(y, x).item(), abs=1e-5
         )
 
     def test_gradient_flows(self):
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(16, 32, requires_grad=True)
-        Y = torch.randn(16, 16)
-        loss = cka(X=X, Y=Y)
+        x = torch.randn(16, 32, requires_grad=True)
+        y = torch.randn(16, 16)
+        loss = cka(X=x, Y=y)
         loss.backward()
-        assert X.grad is not None
+        assert x.grad is not None
 
     def test_different_column_dims_allowed(self):
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 128)
-        Y = torch.randn(32, 16)
-        loss = cka(X=X, Y=Y)
+        x = torch.randn(32, 128)
+        y = torch.randn(32, 16)
+        loss = cka(X=x, Y=y)
         assert loss.item() >= 0.0
 
     def test_mismatched_batch_raises(self):
@@ -944,7 +940,7 @@ class TestCustomLossPlugin:
     """Users should be able to define and register their own losses."""
 
     def test_custom_loss_registers_and_works(self):
-        from chronofy.embedding.losses import TemporalLoss, LossRegistry
+        from chronofy.embedding.losses import LossRegistry, TemporalLoss
 
         class FocalTemporalLoss(TemporalLoss):
             """User-defined focal loss for temporal embeddings."""
@@ -979,9 +975,9 @@ class TestCustomLossPlugin:
     def test_custom_loss_in_composite(self):
         """Custom losses should work inside CompositeLoss."""
         from chronofy.embedding.losses import (
-            TemporalLoss,
-            CompositeLoss,
             CKALoss,
+            CompositeLoss,
+            TemporalLoss,
         )
 
         class MyRegLoss(TemporalLoss):
@@ -996,10 +992,10 @@ class TestCustomLossPlugin:
         composite.add("cka", CKALoss(), weight=0.5)
         composite.add("reg", MyRegLoss(), weight=0.1)
 
-        X = torch.randn(16, 32)
-        Y = torch.randn(16, 16)
+        x = torch.randn(16, 32)
+        y = torch.randn(16, 16)
         emb = torch.randn(16, 8, requires_grad=True)
 
-        total = composite(cka={"X": X, "Y": Y}, reg={"embeddings": emb})
+        total = composite(cka={"X": x, "Y": y}, reg={"embeddings": emb})
         total.backward()
         assert emb.grad is not None

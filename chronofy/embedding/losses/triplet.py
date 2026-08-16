@@ -6,8 +6,10 @@ TemporalTripletLoss: Mines hard negatives based on temporal distance.
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as functional
 
 from chronofy.embedding.losses.base import TemporalLoss
 
@@ -37,11 +39,11 @@ class TripletLoss(TemporalLoss):
         anchor: torch.Tensor,
         positive: torch.Tensor,
         negative: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
-        d_pos = F.pairwise_distance(anchor, positive)
-        d_neg = F.pairwise_distance(anchor, negative)
-        losses = F.relu(d_pos - d_neg + self.margin)
+        d_pos = functional.pairwise_distance(anchor, positive)
+        d_neg = functional.pairwise_distance(anchor, negative)
+        losses = functional.relu(d_pos - d_neg + self.margin)
         return losses.mean()
 
 
@@ -75,7 +77,7 @@ class TemporalTripletLoss(TemporalLoss):
         *,
         embeddings: torch.Tensor,
         timestamps: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         n = embeddings.shape[0]
         if n < 3:
@@ -120,7 +122,7 @@ class TemporalTripletLoss(TemporalLoss):
 
             d_pos = dists[i, best_pos_idx]
             d_neg = dists[i, hard_neg_idx]
-            loss_i = F.relu(d_pos - d_neg + self.margin)
+            loss_i = functional.relu(d_pos - d_neg + self.margin)
             total_loss = total_loss + loss_i
             count += 1
 

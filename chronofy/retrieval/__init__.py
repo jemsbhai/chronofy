@@ -20,11 +20,15 @@ __all__ = [
     "TemporalKnowledgeGraph",
 ]
 
-# Graph components require networkx — graceful degradation
+# Graph components require networkx. Probe only that dependency so internal
+# import defects remain visible instead of silently removing public exports.
 try:
+    import networkx as _networkx  # noqa: F401
+except ModuleNotFoundError as exc:
+    if exc.name != "networkx":
+        raise
+else:
     from chronofy.retrieval.graph import TemporalRuleGraph
     from chronofy.retrieval.rules import RuleMiner, TemporalRule
 
     __all__ += ["TemporalRule", "RuleMiner", "TemporalRuleGraph"]
-except ImportError:
-    pass

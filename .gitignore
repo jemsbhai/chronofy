@@ -8,7 +8,7 @@ build/
 *.egg
 
 # Poetry
-poetry.lock
+# poetry.lock is committed for reproducible development and release builds.
 
 # Virtual environments
 .venv/
@@ -27,6 +27,14 @@ htmlcov/
 coverage/
 npm/coverage/
 
+# Node.js / npm
+node_modules/
+.nyc_output/
+npm-debug.log*
+*.tgz
+npm/dist/
+npm/build/
+
 # Type checking
 .mypy_cache/
 
@@ -34,5 +42,29 @@ npm/coverage/
 .DS_Store
 Thumbs.db
 
-# Experiments (remove this line when results are finalized)
-experiments/
+# Experiments: source, manifests, documentation, and synthetic fixtures are tracked.
+# Keep downloaded/restricted data and generated artifacts local.
+experiments/**/__pycache__/
+experiments/**/*.py[cod]
+experiments/.env
+experiments/.env.*
+experiments/data/**
+experiments/results/**
+experiments/artifacts/**
+experiments/cache/**
+experiments/checkpoints/**
+experiments/figures/**
+experiments/logs/**
+experiments/outputs/**
+experiments/tables/**
+experiments/wandb/**
+experiments/mlruns/**
+experiments/**/*.ckpt
+experiments/**/*.log
+experiments/**/*.onnx
+experiments/**/*.pt
+experiments/**/*.pth
+experiments/**/*.tar
+experiments/**/*.tar.gz
+experiments/**/*.tgz
+experiments/**/*.zip

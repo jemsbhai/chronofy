@@ -17,7 +17,7 @@ class TemporalFact {
    * @param {Date}   opts.timestamp         Observation timestamp
    * @param {string} [opts.factType]        Category for decay rate lookup
    * @param {number} [opts.sourceQuality]   Reliability weight q ∈ (0, 1]
-   * @param {Date}   [opts.publicationTimestamp]
+   * @param {Date}   [opts.publicationTimestamp] Reporting provenance; not used by ageAt
    * @param {string} [opts.source]
    * @param {object} [opts.metadata]
    */

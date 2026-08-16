@@ -24,6 +24,11 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
+from chronofy.decay._validation import (
+    validate_parameter,
+    validate_parameter_map,
+    validate_time_unit,
+)
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
 
@@ -53,10 +58,16 @@ class ExponentialDecay(DecayFunction):
         time_unit: Unit for Δt computation. One of "days", "hours", "seconds".
 
     Example:
+        >>> from datetime import datetime, timedelta
         >>> decay = ExponentialDecay(beta={"vital_sign": 5.0, "demographic": 0.0})
-        >>> fact = TemporalFact(content="K+ = 4.1", timestamp=yesterday, fact_type="vital_sign")
-        >>> decay.compute(fact, datetime.now())  # High validity — 1 day old, high β
-        0.006737...
+        >>> now = datetime(2026, 3, 15, 12, 0)
+        >>> fact = TemporalFact(
+        ...     content="K+ = 4.1",
+        ...     timestamp=now - timedelta(hours=1),
+        ...     fact_type="vital_sign",
+        ... )
+        >>> round(decay.compute(fact, now), 4)
+        0.8119
     """
 
     def __init__(
@@ -65,9 +76,12 @@ class ExponentialDecay(DecayFunction):
         default_beta: float = 0.5,
         time_unit: str = "days",
     ) -> None:
-        self._beta = {**DEFAULT_BETA, **(beta or {})}
-        self._default_beta = default_beta
-        self._time_divisor = {"seconds": 1.0, "hours": 3600.0, "days": 86400.0}[time_unit]
+        custom_beta = validate_parameter_map(beta, "beta", positive=False)
+        self._beta = {**DEFAULT_BETA, **custom_beta}
+        self._default_beta = validate_parameter(
+            default_beta, "default_beta", positive=False
+        )
+        self._time_divisor = validate_time_unit(time_unit)
 
     def _get_beta(self, fact_type: str) -> float:
         return self._beta.get(fact_type, self._default_beta)
@@ -84,7 +98,7 @@ class ExponentialDecay(DecayFunction):
         beta = self._get_beta(fact.fact_type)
         age = self._age_in_units(fact, query_time)
 
-        # Temporal invariance guarantee: when β = 0, decay is always 1.0
+        # Temporal invariance guarantee: when β = 0, the temporal multiplier is 1.0.
         if beta == 0.0:
             return fact.source_quality
 
@@ -112,7 +126,7 @@ class ExponentialDecay(DecayFunction):
         return math.log(2) / beta
 
     @staticmethod
-    def from_mean_reversion_rate(kappa: dict[str, float], **kwargs: object) -> "ExponentialDecay":
+    def from_mean_reversion_rate(kappa: dict[str, float], **kwargs: object) -> ExponentialDecay:
         """Construct from mean-reversion rates κ, using β = 2κ (Proposition 1).
 
         This is the theoretically grounded constructor: if you know the
@@ -128,7 +142,8 @@ class ExponentialDecay(DecayFunction):
             ...     "demographic": 0.0,   # No mean-reversion (invariant)
             ... })
         """
-        beta = {k: 2.0 * v for k, v in kappa.items()}
+        valid_kappa = validate_parameter_map(kappa, "kappa", positive=False)
+        beta = {k: 2.0 * v for k, v in valid_kappa.items()}
         return ExponentialDecay(beta=beta, **kwargs)  # type: ignore[arg-type]
 
     def __repr__(self) -> str:

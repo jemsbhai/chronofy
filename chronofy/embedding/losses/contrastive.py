@@ -7,8 +7,10 @@ NTXentLoss: Normalized Temperature-scaled Cross Entropy (SimCLR-style).
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as functional
 
 from chronofy.embedding.losses.base import TemporalLoss
 
@@ -42,13 +44,13 @@ class TemporalContrastiveLoss(TemporalLoss):
         *,
         embeddings: torch.Tensor,
         timestamps: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         n = embeddings.shape[0]
         if n < 2:
             return torch.tensor(0.0, device=embeddings.device)
 
-        emb_norm = F.normalize(embeddings, dim=1)
+        emb_norm = functional.normalize(embeddings, dim=1)
         sim_matrix = emb_norm @ emb_norm.T / self.temperature
 
         time_diffs = torch.abs(timestamps.unsqueeze(1) - timestamps.unsqueeze(0))
@@ -60,7 +62,7 @@ class TemporalContrastiveLoss(TemporalLoss):
 
         self_mask = torch.eye(n, device=embeddings.device, dtype=torch.bool)
         sim_matrix = sim_matrix.masked_fill(self_mask, float("-inf"))
-        log_probs = F.log_softmax(sim_matrix, dim=1)
+        log_probs = functional.log_softmax(sim_matrix, dim=1)
 
         # Use torch.where to avoid 0 * -inf = NaN
         zero = torch.zeros_like(log_probs)
@@ -90,17 +92,17 @@ class SemanticContrastiveLoss(TemporalLoss):
         *,
         anchors: torch.Tensor,
         positives: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         n = anchors.shape[0]
         if n < 2:
             return torch.tensor(0.0, device=anchors.device)
 
-        a_norm = F.normalize(anchors, dim=1)
-        p_norm = F.normalize(positives, dim=1)
+        a_norm = functional.normalize(anchors, dim=1)
+        p_norm = functional.normalize(positives, dim=1)
 
         all_sim = a_norm @ p_norm.T / self.temperature
-        log_probs = F.log_softmax(all_sim, dim=1)
+        log_probs = functional.log_softmax(all_sim, dim=1)
         loss = -log_probs.diag().mean()
 
         return loss
@@ -133,14 +135,14 @@ class NTXentLoss(TemporalLoss):
         *,
         z_i: torch.Tensor,
         z_j: torch.Tensor,
-        **kwargs,
+        **kwargs: Any,
     ) -> torch.Tensor:
         n = z_i.shape[0]
         if n < 2:
             return torch.tensor(0.0, device=z_i.device)
 
-        z_i_norm = F.normalize(z_i, dim=1)
-        z_j_norm = F.normalize(z_j, dim=1)
+        z_i_norm = functional.normalize(z_i, dim=1)
+        z_j_norm = functional.normalize(z_j, dim=1)
 
         # Concatenate both views: [z_i; z_j] → shape (2n, d)
         z = torch.cat([z_i_norm, z_j_norm], dim=0)
@@ -158,5 +160,5 @@ class NTXentLoss(TemporalLoss):
             torch.arange(0, n, device=z.device),
         ])
 
-        loss = F.cross_entropy(sim, labels)
+        loss = functional.cross_entropy(sim, labels)
         return loss

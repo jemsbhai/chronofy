@@ -1,6 +1,11 @@
 'use strict';
 
 const { DecayFunction } = require('./base');
+const {
+  validateParameter,
+  validateParameterMap,
+  validateTimeUnit,
+} = require('./validation');
 
 /**
  * Default β values grounded in clinical domain knowledge (β = 2κ).
@@ -31,11 +36,10 @@ class ExponentialDecay extends DecayFunction {
    */
   constructor({ beta = {}, defaultBeta = 0.5, timeUnit = 'days' } = {}) {
     super();
-    this._beta = Object.assign({}, DEFAULT_BETA, beta);
-    this._defaultBeta = defaultBeta;
-    const divisors = { seconds: 1000, hours: 3600000, days: 86400000 };
-    if (!divisors[timeUnit]) throw new Error(`Unknown timeUnit: ${timeUnit}`);
-    this._timeDivisor = divisors[timeUnit];
+    const customBeta = validateParameterMap(beta, 'beta', { positive: false });
+    this._beta = Object.assign({}, DEFAULT_BETA, customBeta);
+    this._defaultBeta = validateParameter(defaultBeta, 'defaultBeta', { positive: false });
+    this._timeDivisor = validateTimeUnit(timeUnit);
   }
 
   _getBetaForType(factType) {
@@ -77,8 +81,9 @@ class ExponentialDecay extends DecayFunction {
    * @returns {ExponentialDecay}
    */
   static fromMeanReversionRate(kappa, opts = {}) {
+    const validKappa = validateParameterMap(kappa, 'kappa', { positive: false });
     const beta = {};
-    for (const [k, v] of Object.entries(kappa)) beta[k] = 2 * v;
+    for (const [k, v] of Object.entries(validKappa)) beta[k] = 2 * v;
     return new ExponentialDecay({ ...opts, beta });
   }
 

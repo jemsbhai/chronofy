@@ -34,17 +34,18 @@ class EpistemicFilter:
     Example:
         >>> from chronofy import ExponentialDecay, EpistemicFilter, TemporalFact
         >>> from datetime import datetime, timedelta
+        >>> now = datetime(2026, 3, 15, 12, 0)
         >>> decay = ExponentialDecay(beta={"vital_sign": 5.0})
         >>> ef = EpistemicFilter(decay_fn=decay, threshold=0.1)
         >>> facts = [
-        ...     TemporalFact(content="K+ = 4.1", timestamp=datetime.now() - timedelta(days=1),
+        ...     TemporalFact(content="K+ = 4.1", timestamp=now - timedelta(hours=1),
         ...                  fact_type="vital_sign"),
-        ...     TemporalFact(content="K+ = 3.2", timestamp=datetime.now() - timedelta(days=180),
+        ...     TemporalFact(content="K+ = 3.2", timestamp=now - timedelta(days=180),
         ...                  fact_type="vital_sign"),
         ... ]
-        >>> valid = ef.filter(facts, datetime.now())
-        >>> len(valid)  # Only yesterday's reading survives
-        1
+        >>> valid = ef.filter(facts, now)
+        >>> [fact.content for fact in valid]
+        ['K+ = 4.1']
     """
 
     def __init__(self, decay_fn: DecayFunction, threshold: float = 0.1) -> None:

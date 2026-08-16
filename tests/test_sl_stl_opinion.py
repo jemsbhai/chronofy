@@ -37,12 +37,11 @@ from jsonld_ex.confidence_algebra import Opinion
 
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import ReasoningStep, ReasoningTrace, TemporalFact
-from chronofy.sl.opinion_decay import OpinionDecayFunction, OpinionConfig
+from chronofy.sl.opinion_decay import OpinionDecayFunction
 from chronofy.sl.stl_opinion import (
     OpinionSTLResult,
     OpinionSTLVerifier,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants and helpers
