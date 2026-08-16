@@ -10,7 +10,7 @@ mapping explicitly.
 
 No unreleased changes are currently recorded.
 
-## [Python 0.1.9] — 2026-08-15
+## [Python 0.1.9] — 2026-08-16
 
 Python `0.1.9` is the first release built from a namespaced repository tag and
 verified against the committed lock file and isolated wheel metadata tests.
@@ -39,7 +39,7 @@ verified against the committed lock file and isolated wheel metadata tests.
   and the paper citation. Detailed usage remains in the [main README](README.md)
   rather than being duplicated here.
 
-## [JavaScript 0.1.8] — 2026-08-15
+## [JavaScript 0.1.8] — 2026-08-16
 
 JavaScript `0.1.8` contains the repository fixes that postdate the published
 `0.1.7` artifact. The npm package remains independently versioned from Python.
@@ -77,8 +77,9 @@ artifacts by this release.
 ## Published registry index
 
 This index records only versions present in official registry metadata, checked
-2026-08-15. Dates are registry publication dates in UTC, not reconstructed Git
-release dates. No tag existed to prove an exact commit-to-artifact mapping.
+2026-08-16. Dates are registry publication dates in UTC, not reconstructed Git
+release dates. Python `0.1.9` and JavaScript `0.1.8` are tied to the namespaced
+repository tags linked above; the older releases predate that release policy.
 
 | Distribution | Version | Registry publication date | Registry record |
 |---|---:|---:|---|
@@ -86,10 +87,12 @@ release dates. No tag existed to prove an exact commit-to-artifact mapping.
 | Python / PyPI | 0.1.1 | 2026-03-16 | [PyPI 0.1.1](https://pypi.org/project/chronofy/0.1.1/) |
 | Python / PyPI | 0.1.6 | 2026-03-18 | [PyPI 0.1.6](https://pypi.org/project/chronofy/0.1.6/) |
 | Python / PyPI | 0.1.8 | 2026-03-19 | [PyPI 0.1.8](https://pypi.org/project/chronofy/0.1.8/) |
+| Python / PyPI | 0.1.9 | 2026-08-16 | [PyPI 0.1.9](https://pypi.org/project/chronofy/0.1.9/) |
 | JavaScript / npm | 0.1.0 | 2026-03-16 | [npm 0.1.0](https://www.npmjs.com/package/chronofy/v/0.1.0) |
 | JavaScript / npm | 0.1.1 | 2026-03-16 | [npm 0.1.1](https://www.npmjs.com/package/chronofy/v/0.1.1) |
 | JavaScript / npm | 0.1.6 | 2026-03-18 | [npm 0.1.6](https://www.npmjs.com/package/chronofy/v/0.1.6) |
 | JavaScript / npm | 0.1.7 | 2026-03-18 | [npm 0.1.7](https://www.npmjs.com/package/chronofy/v/0.1.7) |
+| JavaScript / npm | 0.1.8 | 2026-08-16 | [npm 0.1.8](https://www.npmjs.com/package/chronofy/v/0.1.8) |
 
 The registry source data are the official
 [PyPI JSON metadata](https://pypi.org/pypi/chronofy/json) and
