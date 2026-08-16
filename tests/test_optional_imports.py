@@ -26,6 +26,10 @@ def test_internal_import_errors_are_not_masked(
     real_import = builtins.__import__
 
     def fail_internal_import(name, globals=None, locals=None, fromlist=(), level=0):
+        # Exercise the internal-import branch even in the standard-extras CI
+        # profile, where the ML probe dependency is intentionally absent.
+        if broken_import == "chronofy.embedding.fine_tuner" and name == "torch":
+            return object()
         if name == broken_import:
             raise ImportError(f"internal defect in {broken_import}")
         return real_import(name, globals, locals, fromlist, level)

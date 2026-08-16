@@ -7,7 +7,7 @@ Penalizes large embedding differences between temporally proximate facts.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import torch
 
@@ -71,6 +71,6 @@ class TemporalSmoothnessLoss(TemporalLoss):
         pairwise_sq = pairwise_sq.clamp(min=0.0)
 
         # Weighted average
-        loss = (weights * pairwise_sq).sum() / weight_sum
+        loss: torch.Tensor = (weights * pairwise_sq).sum() / weight_sum
 
-        return cast(torch.Tensor, loss)
+        return loss
