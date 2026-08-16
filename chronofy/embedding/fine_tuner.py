@@ -16,18 +16,15 @@ Requires torch (installed via the [ml] extra).
 from __future__ import annotations
 
 import math
-from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as functional
 
 from chronofy.embedding.learned import LearnedEncoder
 from chronofy.embedding.losses.tmrl import TMRLLoss
-
 
 # =====================================================================
 # LoRA layer
@@ -79,8 +76,10 @@ class LoRALinear(nn.Module):
         # Base forward (frozen)
         base_out = self.base_layer(x)
         # LoRA delta: x @ A^T @ B^T * scaling
-        lora_out = F.linear(F.linear(x, self.lora_A), self.lora_B)
-        return base_out + lora_out * self.scaling
+        lora_out = functional.linear(
+            functional.linear(x, self.lora_A), self.lora_B
+        )
+        return cast(torch.Tensor, base_out + lora_out * self.scaling)
 
 
 def apply_lora(module: nn.Module, rank: int, alpha: float = 1.0) -> nn.Module:
@@ -255,8 +254,6 @@ class TemporalFineTuner:
 
                 # Forward: full temporal embeddings
                 full_emb = self._encoder.forward(features)
-                t_dim = self._encoder.temporal_dims
-
                 # Truncated embeddings (for CKA)
                 trunc_emb = full_emb[:, : min(self._matryoshka_scales)]
 

@@ -12,6 +12,8 @@ Reference:
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import torch
 
 from chronofy.embedding.losses.base import TemporalLoss
@@ -38,16 +40,16 @@ class CKALoss(TemporalLoss):
                 f"batch sizes must match, got X={X.shape[0]} and Y={Y.shape[0]}"
             )
 
-        X_c = X - X.mean(dim=0, keepdim=True)
-        Y_c = Y - Y.mean(dim=0, keepdim=True)
+        x_centered = X - X.mean(dim=0, keepdim=True)
+        y_centered = Y - Y.mean(dim=0, keepdim=True)
 
-        XtY = X_c.T @ Y_c
-        cross = (XtY * XtY).sum()
+        cross_covariance = x_centered.T @ y_centered
+        cross = (cross_covariance * cross_covariance).sum()
 
-        XtX = X_c.T @ X_c
-        YtY = Y_c.T @ Y_c
-        norm_x = (XtX * XtX).sum().sqrt()
-        norm_y = (YtY * YtY).sum().sqrt()
+        x_covariance = x_centered.T @ x_centered
+        y_covariance = y_centered.T @ y_centered
+        norm_x = (x_covariance * x_covariance).sum().sqrt()
+        norm_y = (y_covariance * y_covariance).sum().sqrt()
 
         denom = norm_x * norm_y
         if denom < 1e-12:
@@ -55,5 +57,11 @@ class CKALoss(TemporalLoss):
 
         return cross / denom
 
-    def forward(self, *, X: torch.Tensor, Y: torch.Tensor, **kwargs) -> torch.Tensor:
-        return 1.0 - self.cka_similarity(X, Y)
+    def forward(  # noqa: N803 - X/Y are retained as public keyword names.
+        self,
+        *,
+        X: torch.Tensor,
+        Y: torch.Tensor,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        return cast(torch.Tensor, 1.0 - self.cka_similarity(X, Y))

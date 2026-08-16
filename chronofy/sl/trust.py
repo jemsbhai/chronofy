@@ -51,18 +51,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
 
 from jsonld_ex.confidence_algebra import Opinion, trust_discount
 from jsonld_ex.confidence_decay import (
     DecayFunction as JexDecayFunction,
+)
+from jsonld_ex.confidence_decay import (
     decay_opinion,
+)
+from jsonld_ex.confidence_decay import (
     exponential_decay as _jex_exponential_decay,
 )
 
 from chronofy.models import TemporalFact
 from chronofy.sl.opinion_decay import OpinionDecayFunction
-
 
 # Vacuous opinion: total ignorance — the default for unknown sources.
 _VACUOUS = Opinion(belief=0.0, disbelief=0.0, uncertainty=1.0, base_rate=0.5)
@@ -182,8 +184,13 @@ class TrustProfile:
         if entry is None:
             return self._default
 
-        # Static entry or no query_time: return raw opinion
-        if not entry.is_temporal or query_time is None:
+        # Static entry or no query_time: return raw opinion. Checking the
+        # optionals directly also lets the type checker preserve the invariant.
+        if (
+            entry.timestamp is None
+            or entry.half_life is None
+            or query_time is None
+        ):
             return entry.opinion
 
         # Temporal entry: decay trust by age

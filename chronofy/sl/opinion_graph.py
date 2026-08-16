@@ -48,11 +48,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-import networkx as nx
-
-from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
-from chronofy.retrieval.graph import TemporalRuleGraph
+from chronofy.retrieval.graph import RuleDiGraph, TemporalRuleGraph
 from chronofy.retrieval.rules import TemporalRule
 from chronofy.sl.opinion_decay import OpinionDecayFunction
 from chronofy.sl.opinion_scorer import (
@@ -63,6 +60,7 @@ from chronofy.sl.opinion_scorer import (
 
 if TYPE_CHECKING:
     from chronofy.retrieval.filter import EpistemicFilter
+    from chronofy.retrieval.triples import TemporalKnowledgeGraph
 
 
 class OpinionRuleGraph:
@@ -110,6 +108,7 @@ class OpinionRuleGraph:
         mdl_variance_threshold: float = 50.0,
         known_entities: set[str] | None = None,
         scorer: OpinionScorer | None = None,
+        knowledge_graph: TemporalKnowledgeGraph | None = None,
     ) -> OpinionRuleGraph:
         """Build a TemporalRuleGraph and wrap it in one step.
 
@@ -122,14 +121,19 @@ class OpinionRuleGraph:
             opinion_decay_fn: Shared decay function for both edge
                 weights and Opinion scoring.
             mdl_variance_threshold: MDL pruning threshold for inner graph.
-            known_entities: Known entity set for PageRank personalization.
+            known_entities: Optional legacy entity allowlist. It does not
+                provide grounding by itself.
             scorer: Optional custom OpinionScorer.
+            knowledge_graph: Triple store used to ground personalization,
+                edge weights, and returned facts. Querying without one safely
+                returns no results rather than synthetic facts.
         """
         inner = TemporalRuleGraph(
             rules=rules,
             decay_fn=opinion_decay_fn,
             mdl_variance_threshold=mdl_variance_threshold,
             known_entities=known_entities,
+            knowledge_graph=knowledge_graph,
         )
         return cls(
             graph=inner,
@@ -151,7 +155,7 @@ class OpinionRuleGraph:
         return self._graph.rules
 
     @property
-    def nx_graph(self) -> nx.DiGraph:
+    def nx_graph(self) -> RuleDiGraph:
         """The underlying networkx graph."""
         return self._graph.graph
 

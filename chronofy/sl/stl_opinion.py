@@ -42,14 +42,12 @@ References:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from jsonld_ex.confidence_algebra import Opinion
 
 from chronofy.decay.base import DecayFunction
 from chronofy.models import ReasoningStep, ReasoningTrace, TemporalFact
 from chronofy.sl.opinion_decay import OpinionDecayFunction
-
 
 # Dogmatic full-belief opinion: used for no-fact steps (vacuous truth).
 _FULL_VALIDITY = Opinion(belief=1.0, disbelief=0.0, uncertainty=0.0, base_rate=0.5)
@@ -190,11 +188,11 @@ class OpinionSTLVerifier:
         compute_opinion() for the full SL path. Otherwise, calls
         compute() and wraps the scalar into a dogmatic Opinion.
         """
-        if self._is_opinion_aware:
-            return self._decay_fn.compute_opinion(fact, query_time)  # type: ignore[union-attr]
-        else:
-            scalar = self._decay_fn.compute(fact, query_time)
-            return Opinion.from_confidence(scalar, uncertainty=0.0)
+        if isinstance(self._decay_fn, OpinionDecayFunction):
+            return self._decay_fn.compute_opinion(fact, query_time)
+
+        scalar = self._decay_fn.compute(fact, query_time)
+        return Opinion.from_confidence(scalar, uncertainty=0.0)
 
     def _step_opinion(
         self, step: ReasoningStep, query_time: datetime

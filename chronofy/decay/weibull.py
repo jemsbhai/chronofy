@@ -21,6 +21,11 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
+from chronofy.decay._validation import (
+    validate_parameter,
+    validate_parameter_map,
+    validate_time_unit,
+)
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
 
@@ -44,11 +49,15 @@ class WeibullDecay(DecayFunction):
         default_shape: float = 1.0,
         time_unit: str = "days",
     ) -> None:
-        self._scale = scale or {}
-        self._shape = shape or {}
-        self._default_scale = default_scale
-        self._default_shape = default_shape
-        self._time_divisor = {"seconds": 1.0, "hours": 3600.0, "days": 86400.0}[time_unit]
+        self._scale = validate_parameter_map(scale, "scale", positive=True)
+        self._shape = validate_parameter_map(shape, "shape", positive=True)
+        self._default_scale = validate_parameter(
+            default_scale, "default_scale", positive=True
+        )
+        self._default_shape = validate_parameter(
+            default_shape, "default_shape", positive=True
+        )
+        self._time_divisor = validate_time_unit(time_unit)
 
     def _get_scale(self, fact_type: str) -> float:
         return self._scale.get(fact_type, self._default_scale)
@@ -64,7 +73,11 @@ class WeibullDecay(DecayFunction):
         lam = self._get_scale(fact.fact_type)
         k = self._get_shape(fact.fact_type)
         age = self._age_in_units(fact, query_time)
-        return fact.source_quality * math.exp(-((age / lam) ** k))
+        try:
+            cumulative_hazard = (age / lam) ** k
+        except OverflowError:
+            return 0.0
+        return fact.source_quality * math.exp(-cumulative_hazard)
 
     def compute_batch(self, facts: list[TemporalFact], query_time: datetime) -> list[float]:
         return [self.compute(f, query_time) for f in facts]

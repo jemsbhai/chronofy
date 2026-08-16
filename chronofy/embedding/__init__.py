@@ -14,34 +14,39 @@ Architecture:
 """
 
 from chronofy.embedding.base import TemporalEncoder
-from chronofy.embedding.sinusoidal import SinusoidalEncoder
 from chronofy.embedding.embedder import TemporalEmbedder
+from chronofy.embedding.sinusoidal import SinusoidalEncoder
 
-# Torch-dependent imports (available with [ml] extra)
+# Torch-dependent imports (available with [ml] extra). Probe only the optional
+# package here so defects in Chronofy's own ML modules are never hidden.
 try:
+    import torch as _torch  # noqa: F401
+except ModuleNotFoundError as exc:
+    if exc.name != "torch":
+        raise
+    _ML_AVAILABLE = False
+else:
+    from chronofy.embedding.fine_tuner import TemporalFineTuner
     from chronofy.embedding.learned import LearnedEncoder
     from chronofy.embedding.losses import (
-        TemporalLoss,
-        LossRegistry,
-        CompositeLoss,
-        default_registry,
+        AlignmentUniformityLoss,
         CKALoss,
-        TemporalContrastiveLoss,
-        SemanticContrastiveLoss,
+        CompositeLoss,
+        LossRegistry,
+        MatryoshkaTruncationLoss,
         NTXentLoss,
-        TripletLoss,
-        TemporalTripletLoss,
+        SemanticContrastiveLoss,
+        TemporalContrastiveLoss,
+        TemporalLoss,
         TemporalOrderingLoss,
         TemporalSmoothnessLoss,
-        AlignmentUniformityLoss,
-        MatryoshkaTruncationLoss,
+        TemporalTripletLoss,
         TMRLLoss,
+        TripletLoss,
+        default_registry,
     )
-    from chronofy.embedding.fine_tuner import TemporalFineTuner
 
     _ML_AVAILABLE = True
-except ImportError:
-    _ML_AVAILABLE = False
 
 __all__ = ["TemporalEncoder", "SinusoidalEncoder", "TemporalEmbedder"]
 

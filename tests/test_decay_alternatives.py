@@ -16,12 +16,11 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from chronofy.models import TemporalFact
 from chronofy.decay.half_life import HalfLifeDecay
 from chronofy.decay.linear import LinearDecay
 from chronofy.decay.power_law import PowerLawDecay
 from chronofy.decay.weibull import WeibullDecay
-
+from chronofy.models import TemporalFact
 
 QUERY_TIME = datetime(2026, 3, 15)
 

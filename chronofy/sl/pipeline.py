@@ -39,9 +39,11 @@ Two-level aggregation:
         Level 2 (across-proposition): possibilistic min (Theorem 1)
             → STL weakest-link bound over all facts
 
-    The grouping key defaults to fact_type but can be overridden by a
-    user-supplied function (e.g., grouping by analyte name for clinical
-    data where multiple vital signs share the same fact_type).
+    The grouping key defaults to ``fact.metadata["proposition_key"]`` when
+    present, otherwise to the exact fact content. A user-supplied function
+    can group value-varying observations by a stable domain identifier
+    (e.g., analyte name). ``fact_type`` is deliberately not the default:
+    it is a decay-rate category, not a proposition identity.
 
 Usage:
     >>> pipe = SLPipeline.default(half_lives={"vital_sign": 0.5})
@@ -65,9 +67,9 @@ References:
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
 
 from chronofy.decay.base import DecayFunction
 from chronofy.models import ReasoningTrace, TemporalFact
@@ -77,12 +79,35 @@ from chronofy.sl.fusion import FusionReport, TemporalEvidenceFusion
 from chronofy.sl.opinion_decay import OpinionDecayFunction
 from chronofy.sl.stl_opinion import OpinionSTLResult, OpinionSTLVerifier
 
+_PROPOSITION_KEY_FIELD = "proposition_key"
 
-# Default grouping: by fact_type (decay-rate category).
-# This is a coarse proxy — it groups all vital signs together,
-# including potassium and sodium which are different propositions.
-# Users with domain knowledge should supply a finer-grained function.
-_DEFAULT_GROUP_BY: Callable[[TemporalFact], str] = lambda f: f.fact_type
+
+def _default_proposition_key(fact: TemporalFact) -> str:
+    """Return a conservative, stable proposition identity for fusion.
+
+    ``metadata["proposition_key"]`` is the explicit migration path for
+    repeated observations whose content changes with the measured value.
+    Without it, exact content is used so unrelated facts that merely share a
+    decay category can never be fused by default.
+    """
+    if _PROPOSITION_KEY_FIELD in fact.metadata:
+        key = fact.metadata[_PROPOSITION_KEY_FIELD]
+        if not isinstance(key, str) or not key.strip():
+            raise ValueError(
+                "TemporalFact.metadata['proposition_key'] must be a non-empty "
+                f"string for fusion, got {key!r}."
+            )
+        return key.strip()
+
+    if not fact.content:
+        raise ValueError(
+            "Fusion requires a stable proposition key. Set "
+            "TemporalFact.metadata['proposition_key'] or provide fusion_group_by."
+        )
+    return fact.content
+
+
+_DEFAULT_GROUP_BY: Callable[[TemporalFact], str] = _default_proposition_key
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -186,9 +211,12 @@ class SLPipeline:
         verifier: The OpinionSTLVerifier for Layer 3.
         conflict_detector: Optional ConflictDetector for pre-LLM analysis.
         fusion: Optional TemporalEvidenceFusion for same-proposition evidence.
-        fusion_group_by: Function mapping TemporalFact → group key string.
-            Used by process_full() to partition facts into proposition groups
-            before fusion. Default: fact_type.
+        fusion_group_by: Function mapping TemporalFact → a stable proposition
+            key. Used by process_full() to partition facts before fusion.
+            By default, metadata["proposition_key"] is used when present,
+            otherwise exact content. To retain the old fact_type grouping for
+            a domain where each fact type is one proposition, pass
+            ``lambda fact: fact.fact_type`` explicitly.
     """
 
     def __init__(
@@ -264,9 +292,11 @@ class SLPipeline:
                 Requires OpinionDecayFunction; raises ValueError if
                 a plain DecayFunction is provided.
             fusion_method: "cumulative" or "averaging".
-            fusion_group_by: Function mapping TemporalFact → group key.
-                Used by process_full() to partition facts into proposition
-                groups before fusion. Default: fact_type.
+            fusion_group_by: Function mapping TemporalFact → a stable
+                proposition key. The default uses metadata["proposition_key"]
+                when present, otherwise exact content. ``fact_type`` is not a
+                safe proposition identity; callers that relied on it must opt
+                in explicitly with ``lambda fact: fact.fact_type``.
 
         Raises:
             ValueError: If enable_conflict or enable_fusion is True but
@@ -391,8 +421,8 @@ class SLPipeline:
             Within-proposition: SL fusion (⊕ or ⊘)
         Level 2 is handled by STL verification (possibilistic min).
 
-        Groups are determined by self._fusion_group_by. Order preserves
-        first-seen insertion order.
+        Groups are determined by self._fusion_group_by. Keys must be non-empty
+        strings. Order preserves first-seen insertion order.
         """
         assert self._fusion is not None  # caller checks
 
@@ -400,6 +430,12 @@ class SLPipeline:
         groups: OrderedDict[str, list[TemporalFact]] = OrderedDict()
         for fact in facts:
             key = self._fusion_group_by(fact)
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError(
+                    "fusion_group_by must return a non-empty string proposition "
+                    f"key, got {key!r} for fact {fact.content!r}."
+                )
+            key = key.strip()
             if key not in groups:
                 groups[key] = []
             groups[key].append(fact)

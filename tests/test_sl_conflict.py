@@ -33,12 +33,11 @@ jex = pytest.importorskip("jsonld_ex", reason="jsonld-ex required for SL module"
 from jsonld_ex.confidence_algebra import Opinion, pairwise_conflict
 
 from chronofy.models import TemporalFact
-from chronofy.sl.opinion_decay import OpinionDecayFunction, OpinionConfig
 from chronofy.sl.conflict import (
     ConflictDetector,
     ConflictReport,
 )
-
+from chronofy.sl.opinion_decay import OpinionDecayFunction
 
 # ---------------------------------------------------------------------------
 # Constants and helpers
@@ -475,9 +474,6 @@ class TestTemporalDecayInteraction:
     def test_decay_reduces_conflict(self, detector):
         """As facts age, their opinions become more uncertain,
         reducing pairwise conflict magnitude."""
-        high_q = _fact("K+ = 5.5", quality=0.95)
-        low_q = _fact("K+ = 2.8", quality=0.05)
-
         # Fresh
         report_fresh = detector.detect(
             [_fact("a", days_ago=0.0, quality=0.95),

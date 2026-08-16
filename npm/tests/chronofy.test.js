@@ -507,6 +507,37 @@ describe('Plugin validation', () => {
     }
     expect(() => validateDecayFunction(new Bad())).toThrow(PluginValidationError);
   });
+  test('decay batch returning a non-number throws', () => {
+    class Bad extends DecayFunction {
+      compute() { return 0.5; }
+      computeBatch(fs) { return fs.map(() => '0.5'); }
+    }
+    expect(() => validateDecayFunction(new Bad())).toThrow(/computeBatch.*numeric/);
+  });
+  test('decay batch returning a sparse array throws', () => {
+    class Bad extends DecayFunction {
+      compute() { return 0.5; }
+      computeBatch(fs) { return new Array(fs.length); }
+    }
+    expect(() => validateDecayFunction(new Bad())).toThrow(/computeBatch.*numeric/);
+  });
+  test.each([NaN, Infinity, -0.1, 1.1])(
+    'decay batch rejects invalid score %p',
+    (invalidScore) => {
+      class Bad extends DecayFunction {
+        compute() { return 0.5; }
+        computeBatch(fs) { return fs.map(() => invalidScore); }
+      }
+      expect(() => validateDecayFunction(new Bad())).toThrow(PluginValidationError);
+    }
+  );
+  test('decay batch must match per-item compute', () => {
+    class Bad extends DecayFunction {
+      compute() { return 0.5; }
+      computeBatch(fs) { return fs.map(() => 0.4); }
+    }
+    expect(() => validateDecayFunction(new Bad())).toThrow(/computeBatch.*compute/);
+  });
   test('estimator returning negative beta throws', () => {
     class Bad extends EstimationMethod { fit() { return -1; } }
     expect(() => validateEstimationMethod(new Bad())).toThrow(PluginValidationError);

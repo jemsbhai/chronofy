@@ -1,16 +1,21 @@
 'use strict';
 
 const { DecayFunction } = require('./base');
+const {
+  validateParameter,
+  validateParameterMap,
+  validateTimeUnit,
+} = require('./validation');
 
 /** Power-law decay: V = q · 1 / (1 + age)^exponent. Heavy-tailed. */
 class PowerLawDecay extends DecayFunction {
   constructor({ exponent = {}, defaultExponent = 1.0, timeUnit = 'days' } = {}) {
     super();
-    this._exponent = exponent;
-    this._defaultExponent = defaultExponent;
-    const divisors = { seconds: 1000, hours: 3600000, days: 86400000 };
-    if (!divisors[timeUnit]) throw new Error(`Unknown timeUnit: ${timeUnit}`);
-    this._timeDivisor = divisors[timeUnit];
+    this._exponent = validateParameterMap(exponent, 'exponent', { positive: false });
+    this._defaultExponent = validateParameter(
+      defaultExponent, 'defaultExponent', { positive: false }
+    );
+    this._timeDivisor = validateTimeUnit(timeUnit);
   }
 
   _getExponent(factType) {

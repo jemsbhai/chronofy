@@ -54,7 +54,6 @@ from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
 from chronofy.sl.opinion_decay import OpinionDecayFunction
 
-
 # ═══════════════════════════════════════════════════════════════════
 # OpinionScoredFact — immutable result carrier
 # ═══════════════════════════════════════════════════════════════════
@@ -270,11 +269,11 @@ class OpinionScorer:
         Uses compute_opinion() for OpinionDecayFunction, or wraps
         scalar compute() into a dogmatic Opinion for plain DecayFunction.
         """
-        if self._is_opinion_aware:
-            return self._decay_fn.compute_opinion(fact, query_time)  # type: ignore[union-attr]
-        else:
-            scalar = self._decay_fn.compute(fact, query_time)
-            return Opinion.from_confidence(scalar, uncertainty=0.0)
+        if isinstance(self._decay_fn, OpinionDecayFunction):
+            return self._decay_fn.compute_opinion(fact, query_time)
+
+        scalar = self._decay_fn.compute(fact, query_time)
+        return Opinion.from_confidence(scalar, uncertainty=0.0)
 
     def score_fact(
         self,

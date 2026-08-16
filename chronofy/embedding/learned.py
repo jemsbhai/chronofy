@@ -23,13 +23,15 @@ from __future__ import annotations
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn as nn
 
 from chronofy.embedding.base import TemporalEncoder
+from chronofy.models import TemporalFact
 
 _DEFAULT_REFERENCE = datetime(2020, 1, 1)
 
@@ -189,13 +191,13 @@ class LearnedEncoder(TemporalEncoder, nn.Module):
         Returns:
             Tensor of shape (n, temporal_dims).
         """
-        return self.mlp(features)
+        return cast(torch.Tensor, self.mlp(features))
 
     def encode(
         self,
         timestamps: list[datetime],
         reference_time: datetime | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.floating[Any]]:
         """Encode timestamps into temporal vectors (ABC compliance).
 
         This is the TemporalEncoder interface method. It extracts features,
@@ -220,13 +222,13 @@ class LearnedEncoder(TemporalEncoder, nn.Module):
         if was_training:
             self.train()
 
-        return output.cpu().numpy()
+        return cast(npt.NDArray[np.floating[Any]], output.cpu().numpy())
 
     def encode_facts(
         self,
-        facts: list,
+        facts: list[TemporalFact],
         reference_time: datetime | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.floating[Any]]:
         """Convenience: encode timestamps extracted from TemporalFacts."""
         timestamps = [f.timestamp for f in facts]
         return self.encode(timestamps, reference_time=reference_time)
@@ -262,7 +264,7 @@ class LearnedEncoder(TemporalEncoder, nn.Module):
         self.load_state_dict(checkpoint["state_dict"])
 
     @classmethod
-    def from_checkpoint(cls, path: str | Path) -> "LearnedEncoder":
+    def from_checkpoint(cls, path: str | Path) -> LearnedEncoder:
         """Reconstruct a LearnedEncoder from a saved checkpoint.
 
         Args:

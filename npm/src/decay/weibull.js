@@ -1,6 +1,11 @@
 'use strict';
 
 const { DecayFunction } = require('./base');
+const {
+  validateParameter,
+  validateParameterMap,
+  validateTimeUnit,
+} = require('./validation');
 
 /**
  * Weibull decay: V = q · exp(-(age/scale)^shape)
@@ -10,13 +15,11 @@ class WeibullDecay extends DecayFunction {
   constructor({ scale = {}, shape = {}, defaultScale = 7.0,
                 defaultShape = 1.0, timeUnit = 'days' } = {}) {
     super();
-    this._scale = scale;
-    this._shape = shape;
-    this._defaultScale = defaultScale;
-    this._defaultShape = defaultShape;
-    const divisors = { seconds: 1000, hours: 3600000, days: 86400000 };
-    if (!divisors[timeUnit]) throw new Error(`Unknown timeUnit: ${timeUnit}`);
-    this._timeDivisor = divisors[timeUnit];
+    this._scale = validateParameterMap(scale, 'scale', { positive: true });
+    this._shape = validateParameterMap(shape, 'shape', { positive: true });
+    this._defaultScale = validateParameter(defaultScale, 'defaultScale', { positive: true });
+    this._defaultShape = validateParameter(defaultShape, 'defaultShape', { positive: true });
+    this._timeDivisor = validateTimeUnit(timeUnit);
   }
 
   _getScale(factType) {
@@ -35,7 +38,6 @@ class WeibullDecay extends DecayFunction {
     const scale = this._getScale(fact.factType);
     const shape = this._getShape(fact.factType);
     const age = this._ageInUnits(fact, queryTime);
-    if (scale <= 0) return fact.sourceQuality;
     return fact.sourceQuality * Math.exp(-Math.pow(age / scale, shape));
   }
 

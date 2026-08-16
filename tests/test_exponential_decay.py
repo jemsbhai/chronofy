@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from chronofy.decay.exponential import ExponentialDecay, DEFAULT_BETA
+from chronofy.decay.exponential import DEFAULT_BETA, ExponentialDecay
 from chronofy.models import TemporalFact
 
 

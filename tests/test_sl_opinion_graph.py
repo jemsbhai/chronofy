@@ -22,20 +22,17 @@ import pytest
 nx = pytest.importorskip("networkx", reason="networkx required for graph module")
 
 from chronofy.decay.exponential import ExponentialDecay
-from chronofy.models import TemporalFact
 from chronofy.retrieval.filter import EpistemicFilter
-from chronofy.retrieval.triples import TemporalTriple, TemporalKnowledgeGraph
-from chronofy.retrieval.rules import TemporalRule, RuleMiner
 from chronofy.retrieval.graph import TemporalRuleGraph
+from chronofy.retrieval.rules import RuleMiner, TemporalRule
+from chronofy.retrieval.triples import TemporalKnowledgeGraph, TemporalTriple
 from chronofy.sl.opinion_decay import OpinionDecayFunction
+from chronofy.sl.opinion_graph import OpinionRuleGraph
 from chronofy.sl.opinion_scorer import (
     OpinionScoredFact,
     OpinionScorer,
-    ProjectedMultiplicative,
     UncertaintyPenalized,
 )
-from chronofy.sl.opinion_graph import OpinionRuleGraph
-
 
 # ═══════════════════════════════════════════════════════════════════
 # Fixtures — reuse same ICEWS-like data as test_temporal_graph.py
@@ -115,10 +112,13 @@ def scalar_decay() -> ExponentialDecay:
 
 
 @pytest.fixture
-def inner_graph(rules, odf, known_entities) -> TemporalRuleGraph:
+def inner_graph(rules, odf, known_entities, tkg) -> TemporalRuleGraph:
     """TemporalRuleGraph built with OpinionDecayFunction (it IS a DecayFunction)."""
     return TemporalRuleGraph(
-        rules=rules, decay_fn=odf, known_entities=known_entities,
+        rules=rules,
+        decay_fn=odf,
+        known_entities=known_entities,
+        knowledge_graph=tkg,
     )
 
 
@@ -159,14 +159,23 @@ class TestOpinionRuleGraphConstruction:
         """If no scorer provided, a default one is created."""
         assert opinion_graph.scorer is not None
 
-    def test_from_rules_factory(self, rules, odf, known_entities):
+    def test_from_rules_factory(self, rules, odf, known_entities, tkg):
         """from_rules() builds TemporalRuleGraph + OpinionRuleGraph."""
         og = OpinionRuleGraph.from_rules(
             rules=rules,
             opinion_decay_fn=odf,
             known_entities=known_entities,
+            knowledge_graph=tkg,
         )
         assert og.num_rule_nodes == len(rules)
+
+        results = og.query(
+            seed_entity="USA",
+            query_relation="make_statement",
+            query_time=BASE_TIME + timedelta(days=13),
+        )
+        assert results
+        assert results[0][0].content == "USA make_statement France"
 
     def test_from_rules_factory_consistency(self, rules, odf):
         """from_rules() uses the SAME decay fn for inner graph and scoring.
@@ -418,10 +427,15 @@ class TestOpinionQueryFiltering:
 class TestOpinionQueryScoringStrategy:
     """opinion_query uses the configured OpinionScorer strategy."""
 
-    def test_different_strategy_different_scores(self, rules, odf, known_entities):
+    def test_different_strategy_different_scores(
+        self, rules, odf, known_entities, tkg,
+    ):
         """Different strategies produce different combined_scores."""
         og_default = OpinionRuleGraph.from_rules(
-            rules=rules, opinion_decay_fn=odf, known_entities=known_entities,
+            rules=rules,
+            opinion_decay_fn=odf,
+            known_entities=known_entities,
+            knowledge_graph=tkg,
         )
         scorer_up = OpinionScorer(decay_fn=odf, strategy=UncertaintyPenalized())
         og_up = OpinionRuleGraph.from_rules(
@@ -429,6 +443,7 @@ class TestOpinionQueryScoringStrategy:
             opinion_decay_fn=odf,
             known_entities=known_entities,
             scorer=scorer_up,
+            knowledge_graph=tkg,
         )
         t = BASE_TIME + timedelta(days=13)
         results_default = og_default.opinion_query(

@@ -16,6 +16,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from chronofy.decay._validation import (
+    validate_parameter,
+    validate_parameter_map,
+    validate_time_unit,
+)
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
 
@@ -35,9 +40,13 @@ class PowerLawDecay(DecayFunction):
         default_exponent: float = 1.0,
         time_unit: str = "days",
     ) -> None:
-        self._exponent = exponent or {}
-        self._default_exponent = default_exponent
-        self._time_divisor = {"seconds": 1.0, "hours": 3600.0, "days": 86400.0}[time_unit]
+        self._exponent = validate_parameter_map(
+            exponent, "exponent", positive=False
+        )
+        self._default_exponent = validate_parameter(
+            default_exponent, "default_exponent", positive=False
+        )
+        self._time_divisor = validate_time_unit(time_unit)
 
     def _get_exponent(self, fact_type: str) -> float:
         return self._exponent.get(fact_type, self._default_exponent)
@@ -49,7 +58,7 @@ class PowerLawDecay(DecayFunction):
     def compute(self, fact: TemporalFact, query_time: datetime) -> float:
         alpha = self._get_exponent(fact.fact_type)
         age = self._age_in_units(fact, query_time)
-        return fact.source_quality * ((1.0 + age) ** (-alpha))
+        return float(fact.source_quality * ((1.0 + age) ** (-alpha)))
 
     def compute_batch(self, facts: list[TemporalFact], query_time: datetime) -> list[float]:
         return [self.compute(f, query_time) for f in facts]

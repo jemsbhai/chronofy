@@ -37,18 +37,19 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 from jsonld_ex.confidence_algebra import Opinion
 from jsonld_ex.confidence_decay import (
     decay_opinion,
+)
+from jsonld_ex.confidence_decay import (
     exponential_decay as _jex_exponential_decay,
 )
 
 from chronofy.decay.base import DecayFunction
 from chronofy.models import TemporalFact
-
 
 # ═══════════════════════════════════════════════════════════════════
 # Configuration
@@ -232,7 +233,7 @@ class OpinionDecayFunction(DecayFunction):
             # "evidence" mode: map quality to evidence counts
             # Higher quality → more positive evidence relative to negative
             # Scale so q=1.0 gives strong evidence, q=0.5 gives balanced
-            W = self._evidence_prior_weight
+            prior_weight = self._evidence_prior_weight
             # Total evidence scales with quality — more quality = more observations
             total_evidence = q * 10.0  # 10 observations at max quality
             positive = total_evidence * q
@@ -240,7 +241,7 @@ class OpinionDecayFunction(DecayFunction):
             return Opinion.from_evidence(
                 positive=positive,
                 negative=negative,
-                prior_weight=W,
+                prior_weight=prior_weight,
                 base_rate=base_rate,
             )
 

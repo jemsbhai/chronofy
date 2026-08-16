@@ -41,23 +41,23 @@ Example::
     cka = default_registry.create("cka")
 """
 
+from chronofy.embedding.losses.alignment import AlignmentUniformityLoss
 from chronofy.embedding.losses.base import (
-    TemporalLoss,
-    LossRegistry,
     CompositeLoss,
+    LossRegistry,
+    TemporalLoss,
 )
 from chronofy.embedding.losses.cka import CKALoss
 from chronofy.embedding.losses.contrastive import (
-    TemporalContrastiveLoss,
-    SemanticContrastiveLoss,
     NTXentLoss,
+    SemanticContrastiveLoss,
+    TemporalContrastiveLoss,
 )
-from chronofy.embedding.losses.triplet import TripletLoss, TemporalTripletLoss
+from chronofy.embedding.losses.matryoshka import MatryoshkaTruncationLoss
 from chronofy.embedding.losses.ordering import TemporalOrderingLoss
 from chronofy.embedding.losses.smoothness import TemporalSmoothnessLoss
-from chronofy.embedding.losses.alignment import AlignmentUniformityLoss
-from chronofy.embedding.losses.matryoshka import MatryoshkaTruncationLoss
 from chronofy.embedding.losses.tmrl import TMRLLoss
+from chronofy.embedding.losses.triplet import TemporalTripletLoss, TripletLoss
 
 # ─── Default registry with all built-in losses ───────────────────────
 

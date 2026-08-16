@@ -35,10 +35,10 @@ import pytest
 from chronofy.analysis.beta_estimator import (
     BetaEstimateResult,
     BetaEstimator,
+    EnsembleMethod,
     EstimationMethod,
     MLEBernoulli,
     MomentMatching,
-    EnsembleMethod,
 )
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import TemporalFact

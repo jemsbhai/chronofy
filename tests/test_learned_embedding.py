@@ -13,8 +13,6 @@ Covers:
 
 from __future__ import annotations
 
-import math
-import os
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -338,8 +336,8 @@ class TestCKALoss:
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        similarity = cka.cka_similarity(X, X)
+        x = torch.randn(32, 64)
+        similarity = cka.cka_similarity(x, x)
         assert similarity.item() == pytest.approx(1.0, abs=1e-4)
 
     def test_loss_of_identical_is_zero(self):
@@ -347,8 +345,8 @@ class TestCKALoss:
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        loss = cka(X=X, Y=X)
+        x = torch.randn(32, 64)
+        loss = cka(X=x, Y=x)
         assert loss.item() == pytest.approx(0.0, abs=1e-4)
 
     def test_cka_in_zero_one(self):
@@ -356,9 +354,9 @@ class TestCKALoss:
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        Y = torch.randn(32, 32)
-        sim = cka.cka_similarity(X, Y)
+        x = torch.randn(32, 64)
+        y = torch.randn(32, 32)
+        sim = cka.cka_similarity(x, y)
         assert 0.0 <= sim.item() <= 1.0 + 1e-6
 
 
@@ -367,10 +365,10 @@ class TestCKALoss:
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        Y = torch.randn(32, 64)
-        assert cka.cka_similarity(X, Y).item() == pytest.approx(
-            cka.cka_similarity(Y, X).item(), abs=1e-5
+        x = torch.randn(32, 64)
+        y = torch.randn(32, 64)
+        assert cka.cka_similarity(x, y).item() == pytest.approx(
+            cka.cka_similarity(y, x).item(), abs=1e-5
         )
 
     def test_gradient_flows(self):
@@ -378,20 +376,20 @@ class TestCKALoss:
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(16, 32, requires_grad=True)
-        Y = torch.randn(16, 16)
-        loss = cka(X=X, Y=Y)
+        x = torch.randn(16, 32, requires_grad=True)
+        y = torch.randn(16, 16)
+        loss = cka(X=x, Y=y)
         loss.backward()
-        assert X.grad is not None
+        assert x.grad is not None
 
     def test_different_column_dims_allowed(self):
         """CKA works across different dimensionalities (same batch size)."""
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 128)
-        Y = torch.randn(32, 16)
-        loss = cka(X=X, Y=Y)
+        x = torch.randn(32, 128)
+        y = torch.randn(32, 16)
+        loss = cka(X=x, Y=y)
         assert loss.item() >= 0.0
 
     def test_mismatched_batch_size_raises(self):
@@ -399,10 +397,10 @@ class TestCKALoss:
         from chronofy.embedding.losses import CKALoss
 
         cka = CKALoss()
-        X = torch.randn(32, 64)
-        Y = torch.randn(16, 64)
+        x = torch.randn(32, 64)
+        y = torch.randn(16, 64)
         with pytest.raises(ValueError, match="batch"):
-            cka(X=X, Y=Y)
+            cka(X=x, Y=y)
 
 
 # =====================================================================

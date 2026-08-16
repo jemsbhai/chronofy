@@ -30,22 +30,22 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from chronofy.analysis.beta_estimator import (
+    EnsembleMethod,
+    EstimationMethod,
+    MLEBernoulli,
+    MomentMatching,
+)
+from chronofy.decay.base import DecayFunction
+from chronofy.decay.exponential import ExponentialDecay
+from chronofy.decay.linear import LinearDecay
+from chronofy.decay.weibull import WeibullDecay
+from chronofy.models import TemporalFact
 from chronofy.plugins import (
     PluginValidationError,
     validate_decay_function,
     validate_estimation_method,
 )
-from chronofy.decay.exponential import ExponentialDecay
-from chronofy.decay.linear import LinearDecay
-from chronofy.decay.weibull import WeibullDecay
-from chronofy.decay.base import DecayFunction
-from chronofy.analysis.beta_estimator import (
-    EstimationMethod,
-    MLEBernoulli,
-    MomentMatching,
-    EnsembleMethod,
-)
-from chronofy.models import TemporalFact
 
 QUERY_TIME = datetime(2024, 1, 1)
 
@@ -176,6 +176,39 @@ class TestBrokenDecayFunctions:
 
         with pytest.raises(PluginValidationError, match="[Ll]ength|[Ss]ize|batch"):
             validate_decay_function(WrongLength())
+
+    @pytest.mark.parametrize(
+        ("batch_value", "message"),
+        [
+            ("not numeric", "numeric"),
+            (True, "numeric"),
+            (float("nan"), "non-finite"),
+            (float("inf"), "non-finite"),
+            (-0.1, r"\[0\.0, 1\.0\]"),
+            (1.1, r"\[0\.0, 1\.0\]"),
+        ],
+    )
+    def test_compute_batch_items_are_validated(self, batch_value, message):
+        class InvalidBatchItem(DecayFunction):
+            def compute(self, fact, query_time):
+                return 0.5
+
+            def compute_batch(self, facts, query_time):
+                return [batch_value] * len(facts)
+
+        with pytest.raises(PluginValidationError, match=message):
+            validate_decay_function(InvalidBatchItem())
+
+    def test_compute_batch_must_match_per_item_compute(self):
+        class InconsistentBatch(DecayFunction):
+            def compute(self, fact, query_time):
+                return 0.5
+
+            def compute_batch(self, facts, query_time):
+                return [0.4] * len(facts)
+
+        with pytest.raises(PluginValidationError, match="must be consistent"):
+            validate_decay_function(InconsistentBatch())
 
     def test_compute_returns_nan_raises(self):
         class ReturnsNaN(DecayFunction):

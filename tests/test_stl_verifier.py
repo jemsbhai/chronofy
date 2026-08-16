@@ -24,7 +24,6 @@ from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import ReasoningStep, ReasoningTrace, TemporalFact
 from chronofy.verification.stl import STLResult, STLVerifier
 
-
 QUERY_TIME = datetime(2026, 3, 15, 12, 0)
 
 
@@ -178,8 +177,9 @@ class TestRobustness:
         """One stale step drags ρ below zero."""
         trace = ReasoningTrace(
             steps=[
-                _step(0, [_fact("fresh", 0.0)]),           # v ≈ 1.0 → 1.0 - 0.5 = 0.5
-                _step(1, [_fact("stale", 10.0, "general")]),  # v = exp(-5) ≈ 0.0067 → 0.0067 - 0.5 < 0
+                _step(0, [_fact("fresh", 0.0)]),  # v ≈ 1.0 → margin 0.5
+                # v = exp(-5) ≈ 0.0067 → margin < 0
+                _step(1, [_fact("stale", 10.0, "general")]),
             ],
             query_time=QUERY_TIME,
         )

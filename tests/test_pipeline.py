@@ -10,17 +10,13 @@ Since Layer 1 (embedding) is not yet implemented, the pipeline operates
 on pre-retrieved TemporalFact lists.
 """
 
-import math
 from datetime import datetime, timedelta
-
-import pytest
 
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import ReasoningStep, ReasoningTrace, TemporalFact
 from chronofy.pipeline import ChronofyPipeline
 from chronofy.retrieval.filter import EpistemicFilter
 from chronofy.verification.stl import STLVerifier
-
 
 QUERY_TIME = datetime(2026, 3, 15, 12, 0)
 

@@ -40,22 +40,18 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from jsonld_ex.confidence_algebra import Opinion
-
 from chronofy.models import ReasoningStep, ReasoningTrace, TemporalFact
 from chronofy.sl.conflict import ConflictDetector, ConflictReport
 from chronofy.sl.fusion import FusionReport, TemporalEvidenceFusion
-from chronofy.sl.opinion_decay import OpinionConfig, OpinionDecayFunction
-from chronofy.sl.opinion_filter import OpinionEpistemicFilter, OpinionPartitionResult
+from chronofy.sl.opinion_decay import OpinionDecayFunction
+from chronofy.sl.opinion_filter import OpinionEpistemicFilter
 from chronofy.sl.opinion_scorer import (
-    OpinionScoredFact,
     OpinionScorer,
     ProjectedMultiplicative,
     UncertaintyPenalized,
 )
 from chronofy.sl.pipeline import GroupedFusionResult, SLPipeline, SLPipelineResult
 from chronofy.sl.stl_opinion import OpinionSTLResult, OpinionSTLVerifier
-
 
 # ═══════════════════════════════════════════════════════════════════
 # Clinical scenario setup
@@ -88,6 +84,7 @@ def clinical_facts() -> list[TemporalFact]:
             fact_type="vital_sign",
             source_quality=0.95,
             source="lab_system_A",
+            metadata={"proposition_key": "serum-potassium"},
         ),
         TemporalFact(
             content="K+=4.2 mEq/L",
@@ -95,6 +92,7 @@ def clinical_facts() -> list[TemporalFact]:
             fact_type="vital_sign",
             source_quality=0.90,
             source="lab_system_B",
+            metadata={"proposition_key": "serum-potassium"},
         ),
         # Stale potassium (should be filtered)
         TemporalFact(
@@ -103,6 +101,7 @@ def clinical_facts() -> list[TemporalFact]:
             fact_type="vital_sign",
             source_quality=0.85,
             source="lab_system_A",
+            metadata={"proposition_key": "serum-potassium"},
         ),
         # Fresh medication record (different proposition)
         TemporalFact(
@@ -111,6 +110,7 @@ def clinical_facts() -> list[TemporalFact]:
             fact_type="medication",
             source_quality=1.0,
             source="pharmacy_system",
+            metadata={"proposition_key": "metformin-regimen"},
         ),
         # Stable demographic fact (near-zero decay)
         TemporalFact(
@@ -119,6 +119,7 @@ def clinical_facts() -> list[TemporalFact]:
             fact_type="demographic",
             source_quality=1.0,
             source="patient_record",
+            metadata={"proposition_key": "blood-type"},
         ),
     ]
 
@@ -480,12 +481,12 @@ class TestClinicalSLPipelineFull:
         assert result.fusion_report is not None
         assert isinstance(result.fusion_report, GroupedFusionResult)
         gr = result.fusion_report
-        assert "vital_sign" in gr.group_reports
-        assert "medication" in gr.group_reports
-        assert "demographic" in gr.group_reports
-        assert gr.group_reports["vital_sign"].source_count == 2
-        assert gr.group_reports["medication"].source_count == 1
-        assert gr.group_reports["demographic"].source_count == 1
+        assert "serum-potassium" in gr.group_reports
+        assert "metformin-regimen" in gr.group_reports
+        assert "blood-type" in gr.group_reports
+        assert gr.group_reports["serum-potassium"].source_count == 2
+        assert gr.group_reports["metformin-regimen"].source_count == 1
+        assert gr.group_reports["blood-type"].source_count == 1
 
     def test_process_simple_clinical(self, clinical_facts):
         """process() returns (valid_facts, OpinionSTLResult)."""

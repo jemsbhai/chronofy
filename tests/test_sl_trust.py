@@ -43,7 +43,6 @@ from chronofy.sl.trust import (
     TrustWeightedDecay,
 )
 
-
 # ---------------------------------------------------------------------------
 # Constants and helpers
 # ---------------------------------------------------------------------------
@@ -643,7 +642,6 @@ class TestTrustFusionIntegration:
     """TrustWeightedDecay opinions can be fused."""
 
     def test_trust_discounted_opinions_fuseable(self):
-        from chronofy.sl.fusion import TemporalEvidenceFusion
 
         odf = OpinionDecayFunction(half_lives={"general": 7.0}, base_uncertainty=0.1)
         tp = TrustProfile.from_scalars({"lab": 0.95, "self_report": 0.5})

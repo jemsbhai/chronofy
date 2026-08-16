@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "description": "Synthetic, non-clinical facts for deterministic decay/filter validation.",
+  "reference_time": "2026-01-04T12:00:00",
+  "time_unit": "days",
+  "beta": 0.6931471805599453,
+  "threshold": 0.3,
+  "absolute_tolerance": 1e-12,
+  "facts": [
+    {
+      "id": "fresh",
+      "observed_at": "2026-01-04T12:00:00",
+      "source_quality": 1.0,
+      "expected_score": 1.0,
+      "expected_included": true
+    },
+    {
+      "id": "future-clamped",
+      "observed_at": "2026-01-05T12:00:00",
+      "source_quality": 0.6,
+      "expected_score": 0.6,
+      "expected_included": true
+    },
+    {
+      "id": "one-day",
+      "observed_at": "2026-01-03T12:00:00",
+      "source_quality": 0.8,
+      "expected_score": 0.4,
+      "expected_included": true
+    },
+    {
+      "id": "two-days",
+      "observed_at": "2026-01-02T12:00:00",
+      "source_quality": 1.0,
+      "expected_score": 0.25,
+      "expected_included": false
+    }
+  ],
+  "expected_included_order": [
+    "fresh",
+    "future-clamped",
+    "one-day"
+  ]
+}

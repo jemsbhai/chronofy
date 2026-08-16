@@ -1,6 +1,11 @@
 'use strict';
 
 const { DecayFunction } = require('./base');
+const {
+  validateParameter,
+  validateParameterMap,
+  validateTimeUnit,
+} = require('./validation');
 
 /** Half-life parameterised exponential: β = ln(2) / halfLife */
 class HalfLifeDecay extends DecayFunction {
@@ -12,11 +17,11 @@ class HalfLifeDecay extends DecayFunction {
    */
   constructor({ halfLife = {}, defaultHalfLife = 1.0, timeUnit = 'days' } = {}) {
     super();
-    this._halfLife = halfLife;
-    this._defaultHalfLife = defaultHalfLife;
-    const divisors = { seconds: 1000, hours: 3600000, days: 86400000 };
-    if (!divisors[timeUnit]) throw new Error(`Unknown timeUnit: ${timeUnit}`);
-    this._timeDivisor = divisors[timeUnit];
+    this._halfLife = validateParameterMap(halfLife, 'halfLife', { positive: true });
+    this._defaultHalfLife = validateParameter(
+      defaultHalfLife, 'defaultHalfLife', { positive: true }
+    );
+    this._timeDivisor = validateTimeUnit(timeUnit);
   }
 
   _getHalfLife(factType) {
@@ -30,14 +35,12 @@ class HalfLifeDecay extends DecayFunction {
   compute(fact, queryTime) {
     const hl = this._getHalfLife(fact.factType);
     const age = this._ageInUnits(fact, queryTime);
-    if (hl <= 0) return fact.sourceQuality;
-    const beta = Math.LN2 / hl;
-    return fact.sourceQuality * Math.exp(-beta * age);
+    return fact.sourceQuality * Math.pow(0.5, age / hl);
   }
 
   getBeta(factType) {
     const hl = this._getHalfLife(factType);
-    return hl > 0 ? Math.LN2 / hl : 0;
+    return Math.LN2 / hl;
   }
 
   toString() {

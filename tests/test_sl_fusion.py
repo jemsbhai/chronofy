@@ -24,12 +24,11 @@ jex = pytest.importorskip("jsonld_ex", reason="jsonld-ex required for SL module"
 from jsonld_ex.confidence_algebra import Opinion
 
 from chronofy.models import TemporalFact
-from chronofy.sl.opinion_decay import OpinionDecayFunction, OpinionConfig
 from chronofy.sl.fusion import (
-    TemporalEvidenceFusion,
     FusionReport,
+    TemporalEvidenceFusion,
 )
-
+from chronofy.sl.opinion_decay import OpinionDecayFunction
 
 # ---------------------------------------------------------------------------
 # Constants and helpers

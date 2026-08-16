@@ -18,8 +18,8 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable
 
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import ReasoningTrace, TemporalFact

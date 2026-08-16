@@ -50,9 +50,9 @@ class TemporalFact(BaseModel):
     def age_at(self, query_time: datetime) -> float:
         """Compute wall-clock age in days at the given query time.
 
-        Uses observation timestamp (not publication timestamp) by default,
-        following the principle that age should reflect when the underlying
-        state was actually measured.
+        Uses ``timestamp`` (not ``publication_timestamp``), following the
+        principle that age should reflect when the underlying state was
+        actually measured.
         """
         delta = query_time - self.timestamp
         return max(delta.total_seconds() / 86400.0, 0.0)

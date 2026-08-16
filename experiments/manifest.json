@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "manifest_status": "source inventory and execution contract; not a claim that full results reproduce on every machine",
+  "default_seed": 42,
+  "validation": {
+    "command": "poetry run python -B experiments/validate.py",
+    "fixture": "experiments/fixtures/synthetic_temporal_facts.json",
+    "fixture_sha256": "9c920bf898d70fc9fd5e992ec9dfcd991b17c593868038c513953f1cf6a242fb",
+    "expected": "four scores match within 1e-12 and three fixture facts survive in the declared order"
+  },
+  "tracked_python_sources": [
+    "experiments/__init__.py",
+    "experiments/debug_gemini.py",
+    "experiments/exp1_tkg_decay.py",
+    "experiments/exp2_stl_time.py",
+    "experiments/exp3_beta_sensitivity.py",
+    "experiments/exp3b_clinical_beta.py",
+    "experiments/exp3c_clinical_ablations.py",
+    "experiments/exp4_gdelt_decay.py",
+    "experiments/exp5_rag_endtoend.py",
+    "experiments/exp6_ablation.py",
+    "experiments/inspect_gdelt.py",
+    "experiments/inspect_time.py",
+    "experiments/inspect_time2.py",
+    "experiments/read_fine.py",
+    "experiments/reproducibility.py",
+    "experiments/test_parsing.py",
+    "experiments/test_stl_local.py",
+    "experiments/utils.py",
+    "experiments/validate.py"
+  ],
+  "experiments": [
+    {
+      "id": "exp1",
+      "entrypoint": "experiments/exp1_tkg_decay.py",
+      "inputs": ["icews14-evoexplore"],
+      "commands": [
+        "poetry run python -m experiments.exp1_tkg_decay --download",
+        "poetry run python -m experiments.exp1_tkg_decay --run --quick",
+        "poetry run python -m experiments.exp1_tkg_decay --alternatives --quick"
+      ],
+      "seed": 42,
+      "output_contract": "exp1_tkg_decay.json/csv and exp1b_decay_alternatives.json/csv; metric values must be finite in [0,1] and query counts positive",
+      "tolerance": "1e-9 absolute for repeated runs with the same input bytes, Python/NumPy lock, and CPU execution",
+      "limitations": "Full execution is compute-intensive; upstream license must be reviewed before redistribution."
+    },
+    {
+      "id": "exp2",
+      "entrypoint": "experiments/exp2_stl_time.py",
+      "inputs": ["time-lite", "gemini-2.5-flash"],
+      "commands": [
+        "poetry run python -m experiments.exp2_stl_time --run --subset news --limit 10"
+      ],
+      "seed": 42,
+      "output_contract": "exp2_stl_time_<subset>.json; counts are non-negative and reported probabilities/AUROC values, when defined, are in [0,1]",
+      "tolerance": "schema and numeric-range validation only",
+      "limitations": "Requires a user-supplied API credential, network access, and paid or quota-limited remote inference. Provider behavior is not revision-pinned or deterministic."
+    },
+    {
+      "id": "exp3",
+      "entrypoint": "experiments/exp3_beta_sensitivity.py",
+      "inputs": ["icews14-evoexplore"],
+      "commands": [
+        "poetry run python -m experiments.exp3_beta_sensitivity --quick"
+      ],
+      "seed": 42,
+      "output_contract": "exp3_beta_sensitivity.json and exp3_beta_heatmap.csv; all reported retrieval metrics are finite in [0,1]",
+      "tolerance": "1e-9 absolute with identical input bytes and locked environment",
+      "limitations": "ICEWS relation groups are research proxies, not validated domain half-lives."
+    },
+    {
+      "id": "exp3b",
+      "entrypoint": "experiments/exp3b_clinical_beta.py",
+      "inputs": ["mimic-iv-demo-2.2"],
+      "commands": [
+        "poetry run python -m experiments.exp3b_clinical_beta --download",
+        "poetry run python -m experiments.exp3b_clinical_beta --quick"
+      ],
+      "seed": 42,
+      "output_contract": "exp3b_clinical_beta.json and exp3b_clinical_heatmap.csv; metrics are finite in [0,1] and category counts are non-negative",
+      "tolerance": "1e-9 absolute with verified demo files and the locked environment",
+      "limitations": "Uses only the deidentified open demo. It is research code, not clinical validation, clinical advice, or a medical-device claim; raw records remain ignored."
+    },
+    {
+      "id": "exp3c",
+      "entrypoint": "experiments/exp3c_clinical_ablations.py",
+      "inputs": ["mimic-iv-demo-2.2"],
+      "commands": [
+        "poetry run python -m experiments.exp3c_clinical_ablations --quick"
+      ],
+      "seed": 42,
+      "output_contract": "exp3c_clinical_ablations.json; metric values are finite in [0,1], and the declared beta and decay-model parameter sweeps are present",
+      "tolerance": "1e-9 absolute with verified demo files and the locked environment",
+      "limitations": "Same clinical and data-handling limits as exp3b; the run can be expensive."
+    },
+    {
+      "id": "exp4",
+      "entrypoint": "experiments/exp4_gdelt_decay.py",
+      "inputs": ["gdelt-tflex"],
+      "commands": [
+        "poetry run python -m experiments.exp4_gdelt_decay --download",
+        "poetry run python -m experiments.exp4_gdelt_decay --run --limit 100"
+      ],
+      "seed": 42,
+      "output_contract": "exp4_gdelt_decay.json; metric values are finite in [0,1], relation identifiers are preserved, and query counts are positive",
+      "tolerance": "1e-9 absolute with the pinned dataset revision and locked environment",
+      "limitations": "The complete sweep downloads a large dataset and is compute-intensive."
+    },
+    {
+      "id": "exp5",
+      "entrypoint": "experiments/exp5_rag_endtoend.py",
+      "inputs": ["time-lite", "sentence-transformers/all-MiniLM-L6-v2", "gemini-2.5-flash"],
+      "commands": [
+        "poetry run python -m experiments.exp5_rag_endtoend --inspect 10",
+        "poetry run python -m experiments.exp5_rag_endtoend --embed",
+        "poetry run python -m experiments.exp5_rag_endtoend --sweep",
+        "poetry run python -m experiments.exp5_rag_endtoend --run --limit 5"
+      ],
+      "seed": 42,
+      "output_contract": "exp5_sweep.json and exp5_rag_endtoend.json; retrieval/accuracy metrics are finite in [0,1] and every evaluated item retains its method/config metadata",
+      "tolerance": "schema/range only for remote-LLM output; 1e-6 absolute for embedding-based metrics on the same hardware/software stack",
+      "limitations": "Embedding caches are machine artifacts. GPU kernels may vary, and remote inference requires credentials and is not deterministically versioned."
+    },
+    {
+      "id": "exp6",
+      "entrypoint": "experiments/exp6_ablation.py",
+      "inputs": ["time-lite", "generated exp5 embedding cache"],
+      "commands": [
+        "poetry run python -m experiments.exp6_ablation"
+      ],
+      "seed": 42,
+      "output_contract": "exp6_ablation.json; every ablation variant and configured temporal dimension is present and Gold@k values are finite in [0,1]",
+      "tolerance": "1e-6 absolute with the same verified embedding-cache checksum and software/hardware stack",
+      "limitations": "Requires the ignored embedding cache produced by exp5; its checksum must be recorded in each released result bundle."
+    }
+  ],
+  "diagnostic_utilities": [
+    "experiments/debug_gemini.py",
+    "experiments/inspect_gdelt.py",
+    "experiments/inspect_time.py",
+    "experiments/inspect_time2.py",
+    "experiments/read_fine.py",
+    "experiments/test_parsing.py",
+    "experiments/test_stl_local.py"
+  ]
+}

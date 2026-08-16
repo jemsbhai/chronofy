@@ -51,7 +51,6 @@ from jsonld_ex.confidence_byzantine import (
 from chronofy.models import TemporalFact
 from chronofy.sl.opinion_decay import OpinionDecayFunction
 
-
 _VALID_METHODS = {"cumulative", "averaging"}
 
 
@@ -181,7 +180,7 @@ class TemporalEvidenceFusion:
                 threshold=self._byzantine_threshold,
             )
             byz_report = byzantine_fuse(opinions_to_fuse, config=byz_config)
-            removed_indices = list(byz_report.removed)
+            removed_indices = [removal.index for removal in byz_report.removed]
             # The byzantine_fuse returns the fused result directly,
             # but we want to control fusion method ourselves.
             # Reconstruct the filtered list.

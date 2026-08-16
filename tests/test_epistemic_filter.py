@@ -13,7 +13,6 @@ from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import TemporalFact
 from chronofy.retrieval.filter import EpistemicFilter
 
-
 QUERY_TIME = datetime(2026, 3, 15)
 
 

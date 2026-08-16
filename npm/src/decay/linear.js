@@ -1,16 +1,19 @@
 'use strict';
 
 const { DecayFunction } = require('./base');
+const {
+  validateParameter,
+  validateParameterMap,
+  validateTimeUnit,
+} = require('./validation');
 
 /** Linear decay: V = q · max(0, 1 − rate · Δt). Hard expiry at 1/rate. */
 class LinearDecay extends DecayFunction {
   constructor({ rate = {}, defaultRate = 0.1, timeUnit = 'days' } = {}) {
     super();
-    this._rate = rate;
-    this._defaultRate = defaultRate;
-    const divisors = { seconds: 1000, hours: 3600000, days: 86400000 };
-    if (!divisors[timeUnit]) throw new Error(`Unknown timeUnit: ${timeUnit}`);
-    this._timeDivisor = divisors[timeUnit];
+    this._rate = validateParameterMap(rate, 'rate', { positive: false });
+    this._defaultRate = validateParameter(defaultRate, 'defaultRate', { positive: false });
+    this._timeDivisor = validateTimeUnit(timeUnit);
   }
 
   _getRate(factType) {

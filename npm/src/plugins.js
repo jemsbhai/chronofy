@@ -38,6 +38,7 @@ function validateDecayFunction(fn) {
   if (typeof fn.compute !== 'function')
     throw new PluginValidationError(`${cls}.compute() is missing or not a function`);
 
+  const individualScores = [];
   for (const probe of PROBE_FACTS) {
     let score;
     try { score = fn.compute(probe, PROBE_QUERY); }
@@ -45,21 +46,46 @@ function validateDecayFunction(fn) {
     if (typeof score !== 'number')
       throw new PluginValidationError(
         `${cls}.compute() must return a numeric value, got ${typeof score}`);
-    if (!isFinite(score))
+    if (!Number.isFinite(score))
       throw new PluginValidationError(`${cls}.compute() returned non-finite (NaN/Inf)`);
     if (score < 0)
       throw new PluginValidationError(`${cls}.compute() returned ${score} (negative)`);
     if (score > 1)
       throw new PluginValidationError(`${cls}.compute() returned ${score} (above 1.0)`);
+    individualScores.push(score);
   }
 
   if (typeof fn.computeBatch !== 'function')
     throw new PluginValidationError(`${cls}.computeBatch() is missing or not a function`);
 
-  const batch = fn.computeBatch(PROBE_FACTS, PROBE_QUERY);
+  let batch;
+  try { batch = fn.computeBatch(PROBE_FACTS, PROBE_QUERY); }
+  catch (e) {
+    throw new PluginValidationError(`${cls}.computeBatch() threw: ${e.message}`);
+  }
   if (!Array.isArray(batch) || batch.length !== PROBE_FACTS.length)
     throw new PluginValidationError(
       `${cls}.computeBatch() must return an array of the same length as input`);
+
+  for (let index = 0; index < batch.length; index += 1) {
+    const score = batch[index];
+    if (typeof score !== 'number')
+      throw new PluginValidationError(
+        `${cls}.computeBatch() item ${index} must be numeric, got ${typeof score}`);
+    if (!Number.isFinite(score))
+      throw new PluginValidationError(
+        `${cls}.computeBatch() item ${index} returned non-finite (NaN/Inf)`);
+    if (score < 0 || score > 1)
+      throw new PluginValidationError(
+        `${cls}.computeBatch() item ${index} returned ${score}; scores must be in [0, 1]`);
+
+    const expected = individualScores[index];
+    const tolerance = 1e-12 * Math.max(1, Math.abs(expected));
+    if (Math.abs(score - expected) > tolerance)
+      throw new PluginValidationError(
+        `${cls}.computeBatch() item ${index} returned ${score}, but compute() ` +
+        `returned ${expected} for the same fact`);
+  }
 
   return fn;
 }
@@ -79,7 +105,7 @@ function validateEstimationMethod(method) {
   if (typeof beta !== 'number')
     throw new PluginValidationError(
       `${cls}.fit() must return a numeric float, got ${typeof beta}`);
-  if (!isFinite(beta))
+  if (!Number.isFinite(beta))
     throw new PluginValidationError(`${cls}.fit() returned non-finite (NaN/Inf)`);
   if (beta < 0)
     throw new PluginValidationError(`${cls}.fit() returned β=${beta} (negative)`);
@@ -105,7 +131,7 @@ function validateScoringStrategy(strategy) {
     if (typeof result !== 'number')
       throw new PluginValidationError(
         `${cls}.score() must return a numeric float, got ${typeof result}`);
-    if (!isFinite(result))
+    if (!Number.isFinite(result))
       throw new PluginValidationError(
         `${cls}.score() returned non-finite (NaN/Inf) for (${sim}, ${val})`);
     if (result < 0)

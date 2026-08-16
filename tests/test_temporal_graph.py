@@ -18,10 +18,9 @@ nx = pytest.importorskip("networkx", reason="networkx required for graph module"
 
 from chronofy.decay.exponential import ExponentialDecay
 from chronofy.models import TemporalFact
-from chronofy.retrieval.triples import TemporalTriple, TemporalKnowledgeGraph
-from chronofy.retrieval.rules import TemporalRule, RuleMiner
 from chronofy.retrieval.graph import TemporalRuleGraph
-
+from chronofy.retrieval.rules import RuleMiner, TemporalRule
+from chronofy.retrieval.triples import TemporalKnowledgeGraph, TemporalTriple
 
 # ---------------------------------------------------------------------------
 # Constants and helpers
@@ -545,9 +544,12 @@ class TestTemporalRuleGraph:
         return {"USA", "Russia", "China", "Germany", "France"}
 
     @pytest.fixture
-    def rule_graph(self, rules, decay, known_entities) -> TemporalRuleGraph:
+    def rule_graph(self, rules, decay, known_entities, tkg) -> TemporalRuleGraph:
         return TemporalRuleGraph(
-            rules=rules, decay_fn=decay, known_entities=known_entities,
+            rules=rules,
+            decay_fn=decay,
+            known_entities=known_entities,
+            knowledge_graph=tkg,
         )
 
     # --- Construction ---
@@ -612,22 +614,60 @@ class TestTemporalRuleGraph:
 
     # --- Decay-Weighted Edge Scoring (Eq. 2) ---
 
-    def test_edge_weights_in_valid_range(self, rules, decay):
-        graph = TemporalRuleGraph(rules=rules, decay_fn=decay)
+    def test_edge_weights_in_valid_range(self, rules, decay, tkg):
+        graph = TemporalRuleGraph(
+            rules=rules, decay_fn=decay, knowledge_graph=tkg,
+        )
         query_time = BASE_TIME + timedelta(days=20)
         weights = graph.get_edge_weights(query_time)
         for w in weights:
             assert 0.0 <= w <= 1.0
 
-    def test_edge_weights_decrease_with_age(self, rules, decay):
+    def test_edge_weights_decrease_with_age(self, rules, decay, tkg):
         """Querying at a more distant time should yield lower average weight."""
-        graph = TemporalRuleGraph(rules=rules, decay_fn=decay)
+        graph = TemporalRuleGraph(
+            rules=rules, decay_fn=decay, knowledge_graph=tkg,
+        )
         recent = BASE_TIME + timedelta(days=13)
         distant = BASE_TIME + timedelta(days=100)
         w_recent = graph.get_edge_weights(recent)
         w_distant = graph.get_edge_weights(distant)
         if w_recent and w_distant:
             assert sum(w_recent) / len(w_recent) >= sum(w_distant) / len(w_distant)
+
+    def test_edge_weight_uses_real_head_fact(self, decay):
+        source_rule = TemporalRule(
+            head_relation="middle",
+            body_relations=["signal"],
+            confidence=1.0,
+            support=1,
+        )
+        target_rule = TemporalRule(
+            head_relation="result",
+            body_relations=["middle"],
+            confidence=0.5,
+            support=1,
+        )
+        observed = _triple(
+            "Alice", "result", "ready", 2, quality=0.8,
+        )
+        kg = TemporalKnowledgeGraph()
+        kg.add_triple(observed)
+        query_time = BASE_TIME + timedelta(days=3)
+        graph = TemporalRuleGraph(
+            rules=[source_rule, target_rule],
+            decay_fn=decay,
+            knowledge_graph=kg,
+        )
+
+        assert graph.get_edge_weights(query_time) == [
+            pytest.approx(0.5 * decay.compute(observed.to_temporal_fact(), query_time))
+        ]
+
+        ungrounded = TemporalRuleGraph(
+            rules=[source_rule, target_rule], decay_fn=decay,
+        )
+        assert ungrounded.get_edge_weights(query_time) == [0.0]
 
     # --- Personalized PageRank ---
 
@@ -645,9 +685,12 @@ class TestTemporalRuleGraph:
         )
         assert any(v > 0 for v in scores.values())
 
-    def test_pagerank_custom_damping(self, rules, decay, known_entities):
+    def test_pagerank_custom_damping(self, rules, decay, known_entities, tkg):
         graph = TemporalRuleGraph(
-            rules=rules, decay_fn=decay, known_entities=known_entities,
+            rules=rules,
+            decay_fn=decay,
+            known_entities=known_entities,
+            knowledge_graph=tkg,
         )
         t = BASE_TIME + timedelta(days=13)
         scores_high = graph.query_pagerank(seed_entity="USA", query_time=t, damping=0.95)
@@ -668,6 +711,55 @@ class TestTemporalRuleGraph:
         # Should return dict — either empty or with zero scores
         assert all(v == 0 for v in scores.values()) or len(scores) == 0
 
+    def test_grounded_seeds_can_produce_different_rankings(self, decay):
+        rules = [
+            TemporalRule(
+                head_relation="alice_result",
+                body_relations=["alice_signal"],
+                confidence=1.0,
+                support=1,
+            ),
+            TemporalRule(
+                head_relation="bob_result",
+                body_relations=["bob_signal"],
+                confidence=1.0,
+                support=1,
+            ),
+        ]
+        kg = TemporalKnowledgeGraph()
+        kg.add_triples([
+            _triple("Alice", "alice_signal", "A", 1),
+            _triple("Alice", "alice_result", "A", 2),
+            _triple("Bob", "bob_signal", "B", 1),
+            _triple("Bob", "bob_result", "B", 2),
+        ])
+        graph = TemporalRuleGraph(
+            rules=rules, decay_fn=decay, knowledge_graph=kg,
+        )
+        query_time = BASE_TIME + timedelta(days=3)
+
+        alice_scores = graph.query_pagerank("Alice", query_time)
+        bob_scores = graph.query_pagerank("Bob", query_time)
+
+        assert alice_scores[0] > alice_scores[1]
+        assert bob_scores[1] > bob_scores[0]
+        assert alice_scores != bob_scores
+
+    def test_legacy_entity_allowlist_does_not_fabricate_grounding(self, decay):
+        rule = TemporalRule(
+            head_relation="result",
+            body_relations=["signal"],
+            confidence=1.0,
+            support=1,
+        )
+        graph = TemporalRuleGraph(
+            rules=[rule], decay_fn=decay, known_entities={"Alice"},
+        )
+        query_time = BASE_TIME + timedelta(days=3)
+
+        assert graph.query_pagerank("Alice", query_time) == {0: 0.0}
+        assert graph.query("Alice", "result", query_time) == []
+
     # --- Query Interface ---
 
     def test_query_returns_fact_score_pairs(self, rule_graph):
@@ -678,10 +770,84 @@ class TestTemporalRuleGraph:
             top_k=5,
         )
         assert isinstance(results, list)
+        assert results
         for fact, score in results:
             assert isinstance(fact, TemporalFact)
             assert isinstance(score, float)
             assert score >= 0
+
+    def test_query_returns_real_grounded_fact_with_provenance(self, rules, decay):
+        observed = _triple(
+            "USA",
+            "make_statement",
+            "France",
+            4,
+            quality=0.73,
+            fact_type="diplomatic_event",
+        )
+        kg = TemporalKnowledgeGraph()
+        kg.add_triples([
+            _triple("USA", "cooperate", "France", 2),
+            observed,
+        ])
+        graph = TemporalRuleGraph(
+            rules=rules, decay_fn=decay, knowledge_graph=kg,
+        )
+
+        results = graph.query(
+            seed_entity="USA",
+            query_relation="make_statement",
+            query_time=BASE_TIME + timedelta(days=20),
+        )
+
+        assert len(results) == 1
+        fact, score = results[0]
+        assert score > 0.0
+        assert fact == observed.to_temporal_fact()
+        assert fact.content == "USA make_statement France"
+        assert fact.timestamp == observed.timestamp
+        assert fact.source_quality == 0.73
+        assert fact.fact_type == "diplomatic_event"
+        assert fact.source == "KG:(USA, make_statement, France)"
+
+    def test_query_is_incident_deduplicated_and_not_from_future(self, decay):
+        rule_a = TemporalRule(
+            head_relation="status",
+            body_relations=["signal_a"],
+            confidence=1.0,
+            support=1,
+        )
+        rule_b = TemporalRule(
+            head_relation="status",
+            body_relations=["signal_b"],
+            confidence=1.0,
+            support=1,
+        )
+        alice_fact = _triple("Alice", "status", "ready", 2)
+        kg = TemporalKnowledgeGraph()
+        kg.add_triples([
+            _triple("Alice", "signal_a", "ready", 1),
+            _triple("Alice", "signal_b", "ready", 1),
+            alice_fact,
+            alice_fact,
+            _triple("Alice", "status", "able", 2),
+            _triple("Bob", "status", "waiting", 2),
+            _triple("Alice", "status", "future", 5),
+        ])
+        graph = TemporalRuleGraph(
+            rules=[rule_a, rule_b], decay_fn=decay, knowledge_graph=kg,
+        )
+
+        results = graph.query(
+            seed_entity="Alice",
+            query_relation="status",
+            query_time=BASE_TIME + timedelta(days=3),
+        )
+
+        assert [fact.content for fact, _ in results] == [
+            "Alice status able",
+            "Alice status ready",
+        ]
 
     def test_query_respects_top_k(self, rule_graph):
         results = rule_graph.query(
@@ -703,9 +869,11 @@ class TestTemporalRuleGraph:
             scores = [s for _, s in results]
             assert scores == sorted(scores, reverse=True)
 
-    def test_query_with_threshold(self, rules, decay):
+    def test_query_with_threshold(self, rules, decay, tkg):
         """Facts below explicit threshold should be excluded."""
-        graph = TemporalRuleGraph(rules=rules, decay_fn=decay)
+        graph = TemporalRuleGraph(
+            rules=rules, decay_fn=decay, knowledge_graph=tkg,
+        )
         results = graph.query(
             seed_entity="USA",
             query_relation="make_statement",
@@ -734,12 +902,14 @@ class TestTemporalRuleGraph:
 
     # --- EpistemicFilter Integration ---
 
-    def test_query_with_epistemic_filter(self, rules, decay):
+    def test_query_with_epistemic_filter(self, rules, decay, tkg):
         """Results filtered through EpistemicFilter should all pass threshold."""
         from chronofy.retrieval.filter import EpistemicFilter
 
         ef = EpistemicFilter(decay_fn=decay, threshold=0.3)
-        graph = TemporalRuleGraph(rules=rules, decay_fn=decay)
+        graph = TemporalRuleGraph(
+            rules=rules, decay_fn=decay, knowledge_graph=tkg,
+        )
 
         results = graph.query(
             seed_entity="USA",
@@ -754,12 +924,16 @@ class TestTemporalRuleGraph:
 
     # --- Pluggable Decay (Dependency Inversion) ---
 
-    def test_accepts_different_decay_configurations(self, rules):
+    def test_accepts_different_decay_configurations(self, rules, tkg):
         """Any DecayFunction subclass should work — dependency inversion."""
         fast = ExponentialDecay(default_beta=5.0)
         slow = ExponentialDecay(default_beta=0.01)
-        graph_fast = TemporalRuleGraph(rules=rules, decay_fn=fast)
-        graph_slow = TemporalRuleGraph(rules=rules, decay_fn=slow)
+        graph_fast = TemporalRuleGraph(
+            rules=rules, decay_fn=fast, knowledge_graph=tkg,
+        )
+        graph_slow = TemporalRuleGraph(
+            rules=rules, decay_fn=slow, knowledge_graph=tkg,
+        )
         t = BASE_TIME + timedelta(days=20)
         results_fast = graph_fast.query(
             seed_entity="USA", query_relation="make_statement", query_time=t,
@@ -773,12 +947,14 @@ class TestTemporalRuleGraph:
             max_slow = max(s for _, s in results_slow)
             assert max_fast <= max_slow
 
-    def test_accepts_linear_decay(self, rules):
+    def test_accepts_linear_decay(self, rules, tkg):
         """Should accept LinearDecay — a completely different DecayFunction."""
         from chronofy.decay.linear import LinearDecay
 
         linear = LinearDecay(default_rate=0.1)
-        graph = TemporalRuleGraph(rules=rules, decay_fn=linear)
+        graph = TemporalRuleGraph(
+            rules=rules, decay_fn=linear, knowledge_graph=tkg,
+        )
         results = graph.query(
             seed_entity="USA",
             query_relation="make_statement",
@@ -795,4 +971,4 @@ class TestTemporalRuleGraph:
 
     def test_underlying_graph_is_networkx(self, rule_graph):
         """Internal graph should be a networkx DiGraph or Graph."""
-        assert isinstance(rule_graph.graph, (nx.DiGraph, nx.Graph))
+        assert isinstance(rule_graph.graph, nx.DiGraph | nx.Graph)
