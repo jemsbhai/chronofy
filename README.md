@@ -8,6 +8,29 @@
 
 Chronofy implements the **Temporal-Logical Decay Architecture (TLDA)** — a three-layer neuro-symbolic framework that embeds temporal validity directly into the representation, retrieval, and reasoning layers of Retrieval-Augmented Generation (RAG) systems. It also provides a standalone suite of temporal statistical tools useful outside of RAG.
 
+## The paper
+
+This repository accompanies:
+
+> **Chronofy: A Temporal-Logical Decay Architecture for Information Validity in Time-Aware Retrieval-Augmented Generation.**
+> Muntaser Syed, Marius Silaghi, Sheikh Abujar, and Sharun Akter Khushbu.
+> *IEEE 27th International Conference on Information Reuse and Integration for Data Science
+> (IEEE IRI 2026)*, Seattle, WA. Published, pp. 454–459.
+> DOI: [10.1109/IRI69576.2026.00090](https://doi.org/10.1109/IRI69576.2026.00090)
+
+```bibtex
+@inproceedings{syed2026chronofy,
+  author    = {Syed, Muntaser and Silaghi, Marius and Abujar, Sheikh and Khushbu, Sharun Akter},
+  title     = {Chronofy: A Temporal-Logical Decay Architecture for Information Validity in
+               Time-Aware Retrieval-Augmented Generation},
+  booktitle = {2026 IEEE 27th International Conference on Information Reuse and
+               Integration for Data Science (IRI)},
+  year      = {2026},
+  pages     = {454--459},
+  doi       = {10.1109/IRI69576.2026.00090}
+}
+```
+
 ## Project resources
 
 - [Changelog and published-version index](CHANGELOG.md)
